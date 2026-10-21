@@ -4,30 +4,32 @@ const T = 16; // tile size in pixels
 /* ---------- The map (20 x 15 tiles) ----------
    #  wall          .  wooden floor   ,  grass        -  dirt path
    T  tree          +  gravestone     ~  iron fence   B  bookshelf
+   W  cobweb        r  carpet         L  table        K  candle
+   R  barrel        P  coffin         J  jack-o'-lantern
    O  front door    2,4,5,6  door that opens once room (n-1) is solved
    a-g  the seven challenge spots (room 1-7)                            */
 const MAP = [
   "####################",
-  "#BBbBB#...e..#...f.#",
-  "#.....#......#.....#",
+  "#BBbBB#W..e.R#WP.f.#",
+  "#W...W#K.....#....K#",
   "#.....####5#####6###",
-  "#.....#......#.....#",
-  "#.....#.a....#.....#",
-  "#.....2......4...d.#",
-  "#.....#......#.....#",
+  "#.....#...r.W#RW..R#",
+  "#.LL..#.a.r..#.....#",
+  "#.....2...r..4...d.#",
+  "#K...K#K..r.K#K...R#",
   "##########O#########",
-  "T,,,,,,,,,-,,,,,,,,T",
+  "T,,,,,,J,,-,,,,,,,,T",
   "T,,c,,+,,,-,,+,,+,,T",
   "T,,,,,,,,,-,,,,,,,,T",
   "T,+,,+,,T,-,,+,,+,,T",
-  "T,,,,,,,,,-,,,,,,,,T",
+  "T,,,,,,,,,-,,,,J,,,T",
   "~~~~~~~~~~g~~~~~~~~~",
 ];
 const COLS = MAP[0].length, ROWS = MAP.length;
 const START = { x: 10, y: 13 };
 const STATIONS = "abcdefg";
 const DOORS = "2456";
-const WALK = new Set([".", ",", "-", "O"]);
+const WALK = new Set([".", ",", "-", "O", "W", "r"]);
 
 const WHERE = {
   1: "Talk to Boo-ker in the foyer, inside the manor.",
@@ -48,29 +50,40 @@ const UNLOCKED = {
   7: "The gate creaks open. Walk through it to escape!",
 };
 
+// What the skeletons and spiders moan when you walk past (shown, spoken)
+const PHRASES = [
+  ["Teeeam... Fiiiirrrst...", "Teeeam... Fiiirst..."],
+  ["Nooo prototyyype... nooo meeeeting...", "Nooo prototype... Nooo meeeting..."],
+  ["Puuushing the staaatus quooooo...", "Puuushing... the staaatus quooo..."],
+  ["Weeehee... llllllead... We leaaar...nnnnn...", "Wee hee... lllead... We learrr... nnn..."],
+];
+const DAISY_LINES = ["Hiii!", "I'm Daisy!", "Hee hee hee!", "Wheee!", "Uh-oh!", "Boo!", "Daisy!", "Ooooh!"];
+const SCARE_PHOTOS = ["scare-face.png", "scare-1.png", "scare-2.png", "scare-3.png",
+  "scare-4.png", "scare-5.png", "scare-6.png", "scare-7.png"];
+
 /* ---------- Sprites (16x16, '.' = transparent) ---------- */
-// Baby Daisy: little crown, auburn hair, big blue eyes, orange-yellow dress
+// Baby Daisy: crown with gems, auburn hair, pacifier, yellow dress, white socks, red shoes
 const PLAYER = [
-  ".....c.cc.c.....",
-  ".....cjccjc.....",
-  "....kkkkkkkk....",
+  ".......cc.......",
+  ".....rcjjcr.....",
+  "....kcccccck....",
   "...khhhhhhhhk...",
   "..khhhhhhhhhhk..",
-  "..khsssssssshk..",
+  "..khhsssssshhk..",
   ".hkseesssseeskh.",
-  ".hksppssssppskh.",
-  "..kssssmmssssk..",
-  "...kkkddddkkk...",
-  "...kddddddddk...",
-  "..ksddddddddsk..",
-  "..kdddDddDdddk..",
-  ".kddDddddddDddk.",
-  "...kkkkkkkkkk...",
-  "....kff..ffk....",
+  ".hkspssqqsspskh.",
+  "..kssssqqssssk..",
+  "...kkyygyykk....",
+  "..ksyyyyyyyysk..",
+  "..ksyyyyyyyysk..",
+  "..kooooooooook..",
+  "...kwwwkkwwwk...",
+  "...kwwk..kwwk...",
+  "...kRRk..kRRk...",
 ];
 const PLAYER_PAL = {
-  k: "#1a1022", c: "#ffd23f", j: "#3fd0c9", h: "#c4561e", s: "#f7d1a8", e: "#2a5fd0",
-  p: "#ff8fa3", m: "#c0405a", d: "#ffb627", D: "#e0801a", f: "#e0801a",
+  k: "#1a1022", c: "#ffc94a", r: "#e83a3a", j: "#3fc9a0", h: "#d9772b", s: "#fde8d0", e: "#2a5fd0",
+  p: "#f0a0a0", q: "#e8b85a", y: "#f7d65a", g: "#3fb889", o: "#f0844a", w: "#ffffff", R: "#e04a2a",
 };
 
 const GHOST = [
@@ -94,22 +107,105 @@ const GHOST = [
 const GHOST_PAL = { k: "#1a1022", w: "#f4f0ff", g: "#b9b0e0", e: "#1a1022", p: "#ff9ad5" };
 const SCARY_PAL = { k: "#000000", w: "#cfc8dc", g: "#7a7098", e: "#ff1a3c", p: "#ff1a3c" };
 
+const SKELETON_TOP = [
+  "................",
+  ".....kkkkkk.....",
+  "....kbbbbbbk....",
+  "....kbrbbrbk....",
+  "....kbbbbbbk....",
+  ".....kbkkbk.....",
+  "......kbbk......",
+  "...kkbbbbbbkk...",
+  "..kb.kbkkbk.bk..",
+  "..kb.kbbbbk.bk..",
+  "..kk..kbbk..kk..",
+  "......kbbk......",
+];
+const SKELETON_LEGS = [
+  [".....kb..bk.....", ".....kb..bk.....", ".....kb..bk.....", "....kbb..bbk...."],
+  [".....kb..bk.....", "....kb....bk....", "....kb....bk....", "...kbb....bbk..."],
+];
+const SKELETON_PAL = { k: "#1a1022", b: "#e8e4d8", r: "#ff2a2a" };
+
+const SPIDER = [
+  "................",
+  "................",
+  "................",
+  "..l..........l..",
+  "...l..kkkk..l...",
+  "l...lkbbbbkl...l",
+  ".l..kbebbebk..l.",
+  "..llkbbbbbbkll..",
+  ".l..kbbbbbbk..l.",
+  "l..l.kbbbbk.l..l",
+  "...l..kkkk..l...",
+  "..l..........l..",
+  "................",
+  "................",
+  "................",
+  "................",
+];
+const SPIDER_PAL = { k: "#000000", b: "#3a2450", e: "#ff3355", l: "#1a1022" };
+
+// The crying nun: she sobs silently in the corner of the library (16 x 20, taller than a tile).
+// Rows 0-11 are her head (they bob while she sobs), rows 12-19 her body.
+const NUN = [
+  "......oooo......",
+  "....ookkkkoo....",
+  "...okkkkkkkko...",
+  "..okkwwwwwwkko..",
+  "..okwwsssswwko..",
+  "..okwsbssbswko..", // eyebrows: inner ends up = sad
+  "..okwbssssbwko..",
+  "..okwsesseswko..", // closed, crying eyes
+  "..okwstsstswko..", // tear streaks
+  "..okwstmmtswko..",
+  "..okwsmssmswko..", // downturned mouth
+  "..okkwwwwwwkko..",
+  ".okkkshhhhskkko.", // hands clutching a handkerchief
+  ".okkkkshhskkkko.",
+  ".okkkkkrrkkkkko.", // rosary
+  ".okkkkkkrkkkkko.",
+  "okkkkkkkkkkkkkko",
+  "okkkkkkkkkkkkkko",
+  "okkkkkkkkkkkkkko",
+  ".oooooooooooooo.",
+];
+const NUN_PAL = {
+  o: "#0d0915", k: "#2a2040", w: "#ecebf2", s: "#f0d2b8", b: "#a8806e", e: "#3a2620",
+  t: "#8fd3ff", m: "#8a3a4a", h: "#ffffff", r: "#c9a030",
+};
+const NUN_POS = { x: 1, y: 6 };
+
+// Moving monsters. They walk through things, so they can never block the way.
+const NPCS = [
+  { kind: "skeleton", x: 1, y: 4, min: 1, max: 5, speed: 1.1, dir: 1, next: 0 },   // library
+  { kind: "skeleton", x: 2, y: 11, min: 1, max: 8, speed: 0.9, dir: 1, next: 0 },  // graveyard
+  { kind: "spider", x: 11, top: 4, range: 1.3, speed: 1.1, y: 4, next: 0 },        // foyer
+  { kind: "spider", x: 16, top: 5, range: 1.0, speed: 0.8, y: 5, next: 0 },        // cellar
+  { kind: "spider", x: 14, top: 1, range: 0.9, speed: 1.4, y: 1, next: 0 },        // dungeon
+];
+
 /* ---------- State ---------- */
 let levels = [];
 const solved = new Set(JSON.parse(localStorage.getItem("manor.solved") || "[]"));
-let soundOn = localStorage.getItem("manor.sound") !== "off";
-let scaresOn = localStorage.getItem("manor.scares") !== "off";
+// Sound and scares can't be switched off. The buttons are a prank (see troll()).
+const soundOn = true;
+const scaresOn = true;
 let started = false;
 let escaped = false;
 let dialogLevel = null;
+let talkNext = 0;
 const hintsShown = {};
 const held = [];
 const player = { x: START.x, y: START.y, px: START.x, py: START.y, fx: 0, fy: 0, t: 0, moving: false, flip: false };
 const STEP_MS = 150;
 const stationPos = {};
+const lights = [];
 MAP.forEach((row, y) => [...row].forEach((ch, x) => {
   const i = STATIONS.indexOf(ch);
   if (i >= 0) stationPos[i + 1] = [x, y];
+  if (ch === "K" || ch === "J") lights.push({ ch, x, y });
 }));
 
 const saveSolved = () => localStorage.setItem("manor.solved", JSON.stringify([...solved]));
@@ -146,8 +242,117 @@ function noise(dur, vol) {
   s.start();
 }
 
+/* Four different jumpscare sounds */
+function shriek() {
+  noise(0.7, 0.5);
+  tone("sawtooth", 700, 50, 0.8, 0.35);
+  tone("square", 1200, 2400, 0.5, 0.12);
+}
+
+// A deep "booooOOOO" that swells up: a buzzy voice through a filter that slowly opens
+function boooo() {
+  const a = audio(), t = a.currentTime;
+  const voice = a.createOscillator(), filter = a.createBiquadFilter(), out = a.createGain();
+  const lfo = a.createOscillator(), depth = a.createGain();
+  voice.type = "sawtooth";
+  voice.frequency.setValueAtTime(70, t);
+  voice.frequency.linearRampToValueAtTime(95, t + 0.9);
+  voice.frequency.linearRampToValueAtTime(150, t + 1.5);
+  lfo.frequency.value = 6;
+  depth.gain.value = 4;
+  lfo.connect(depth).connect(voice.frequency);
+  filter.type = "lowpass";
+  filter.Q.value = 8;
+  filter.frequency.setValueAtTime(300, t);
+  filter.frequency.linearRampToValueAtTime(1100, t + 1.4);
+  out.gain.setValueAtTime(0.0001, t);
+  out.gain.exponentialRampToValueAtTime(0.3, t + 0.3);
+  out.gain.linearRampToValueAtTime(0.7, t + 1.4);
+  out.gain.exponentialRampToValueAtTime(0.0001, t + 1.75);
+  voice.connect(filter).connect(out).connect(a.destination);
+  voice.start(t);
+  lfo.start(t);
+  voice.stop(t + 1.8);
+  lfo.stop(t + 1.8);
+}
+
+function scream() {
+  const a = audio(), t = a.currentTime, out = a.createGain();
+  out.gain.setValueAtTime(0.0001, t);
+  out.gain.exponentialRampToValueAtTime(0.22, t + 0.05);
+  out.gain.exponentialRampToValueAtTime(0.0001, t + 1.1);
+  out.connect(a.destination);
+  for (const detune of [0, 70, -50]) {
+    const o = a.createOscillator(), wobble = a.createOscillator(), depth = a.createGain();
+    o.type = "sawtooth";
+    o.detune.value = detune;
+    o.frequency.setValueAtTime(700, t);
+    o.frequency.exponentialRampToValueAtTime(1500, t + 0.3);
+    o.frequency.exponentialRampToValueAtTime(900, t + 1.1);
+    wobble.frequency.value = 13;
+    depth.gain.value = 40;
+    wobble.connect(depth).connect(o.frequency);
+    o.connect(out);
+    o.start(t);
+    wobble.start(t);
+    o.stop(t + 1.2);
+    wobble.stop(t + 1.2);
+  }
+  noise(0.4, 0.3);
+}
+
+function thud() {
+  tone("sine", 90, 30, 0.9, 0.7);
+  tone("square", 50, 40, 0.6, 0.1);
+  noise(0.25, 0.4);
+}
+
+// Creaky door: fast clicks (the wood rubbing) through a filter, slowing down and speeding up
+function doorCreak(dur) {
+  const a = audio(), t = a.currentTime;
+  const clicks = a.createOscillator(), filter = a.createBiquadFilter(), out = a.createGain();
+  clicks.type = "sawtooth";
+  clicks.frequency.setValueAtTime(28, t);
+  clicks.frequency.linearRampToValueAtTime(60, t + dur * 0.35);
+  clicks.frequency.linearRampToValueAtTime(22, t + dur * 0.7);
+  clicks.frequency.linearRampToValueAtTime(45, t + dur);
+  filter.type = "bandpass";
+  filter.frequency.setValueAtTime(900, t);
+  filter.frequency.linearRampToValueAtTime(1500, t + dur);
+  filter.Q.value = 4;
+  out.gain.setValueAtTime(0.0001, t);
+  out.gain.exponentialRampToValueAtTime(0.5, t + 0.05);
+  out.gain.linearRampToValueAtTime(0.35, t + dur * 0.8);
+  out.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  clicks.connect(filter).connect(out).connect(a.destination);
+  clicks.start(t);
+  clicks.stop(t + dur + 0.05);
+}
+
+// "Ha-ha-ha-ha": short buzzy bursts, each one a bit lower. Higher and squeakier for the cat.
+function synthLaugh(cat) {
+  const a = audio(), base = cat ? 520 : 200;
+  for (let i = 0; i < 8; i++) {
+    const t = a.currentTime + i * 0.16;
+    const o = a.createOscillator(), f = a.createBiquadFilter(), g = a.createGain();
+    o.type = "sawtooth";
+    o.frequency.setValueAtTime(base * (1.15 - i * 0.03), t);
+    o.frequency.exponentialRampToValueAtTime(base * 0.8, t + 0.12);
+    f.type = "bandpass";
+    f.frequency.value = cat ? 1500 : 800;
+    f.Q.value = 2;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.6, t + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.13);
+    o.connect(f).connect(g).connect(a.destination);
+    o.start(t);
+    o.stop(t + 0.15);
+  }
+}
+
 const sfx = {
-  scare() { if (!soundOn) return; noise(0.7, 0.5); tone("sawtooth", 700, 50, 0.8, 0.35); tone("square", 1200, 2400, 0.5, 0.12); },
+  scare() { if (soundOn) pick([shriek, boooo, scream, thud])(); },
+  door(dur = 1.3) { if (soundOn) doorCreak(dur); },
   win() { if (!soundOn) return; [523, 659, 784, 1047].forEach((f, i) => tone("square", f, f * 1.01, 0.18, 0.08, i * 0.09)); },
   nope() { if (!soundOn) return; tone("sawtooth", 160, 70, 0.4, 0.15); },
   creak() { if (!soundOn) return; tone("sawtooth", 80, 130, 0.6, 0.04); },
@@ -235,6 +440,47 @@ function updateMusic() {
     music.stop();
     music = null;
   }
+}
+
+/* ---------- Voices (the browser's built-in speech) ---------- */
+const canSpeak = "speechSynthesis" in window;
+let voices = [];
+const loadVoices = () => (voices = speechSynthesis.getVoices().filter((v) => v.lang.startsWith("en")));
+if (canSpeak) {
+  loadVoices();
+  speechSynthesis.onvoiceschanged = loadVoices;
+}
+
+function say(text, pitch, rate, volume = 1) {
+  if (!soundOn || !canSpeak || speechSynthesis.speaking) return;
+  const u = new SpeechSynthesisUtterance(text);
+  u.pitch = pitch;
+  u.rate = rate;
+  u.volume = volume;
+  if (voices.length) u.voice = voices[0];
+  speechSynthesis.speak(u);
+}
+
+function bubble(text, tx, ty, cls = "") {
+  const el = document.createElement("div");
+  el.className = `bubble ${cls}`;
+  el.textContent = text;
+  el.style.left = `${((tx * T + 8) / canvas.width) * 100}%`;
+  el.style.top = `${((ty * T - 2) / canvas.height) * 100}%`;
+  $("#stage").appendChild(el);
+  setTimeout(() => el.remove(), 4000);
+}
+
+function daisySays(text) {
+  bubble(text, player.px, player.py - 0.2, "daisy");
+  say(text, 2, 1.2, 0.9);
+}
+
+function scheduleDaisy() {
+  setTimeout(() => {
+    if (started && !dialogLevel && !escaped && !document.hidden) daisySays(pick(DAISY_LINES));
+    scheduleDaisy();
+  }, 20000 + Math.random() * 30000);
 }
 
 /* ---------- Pixel drawing ---------- */
@@ -380,6 +626,92 @@ function doorway(c, X, Y, tx, ty, mat) {
   if (mat) rect(c, X + 3, Y + 5, 10, 6, "#6a2a2a");
 }
 
+function web(c, X, Y, tx, ty) {
+  floor(c, X, Y, tx, ty);
+  // Hang the web in the corner against the nearest side wall
+  const right = tileAt(tx + 1, ty) === "#" && tileAt(tx - 1, ty) !== "#";
+  const dot = (x, y) => rect(c, X + (right ? 15 - x : x), Y + y, 1, 1, "rgba(225,225,240,0.6)");
+  for (let i = 0; i < 13; i++) {
+    dot(i, 0);
+    dot(0, i);
+    if (i < 10) dot(i, i);
+    dot(i, i >> 1);
+    dot(i >> 1, i);
+  }
+  for (const r of [4, 8, 12]) {
+    for (let a = 0; a <= 90; a += 8) {
+      const rad = (a * Math.PI) / 180;
+      dot(Math.round(r * Math.cos(rad)), Math.round(r * Math.sin(rad)));
+    }
+  }
+}
+
+function carpet(c, X, Y, tx, ty) {
+  floor(c, X, Y, tx, ty);
+  rect(c, X + 2, Y, 12, T, "#6a1f2e");
+  rect(c, X + 2, Y, 1, T, "#a8834a");
+  rect(c, X + 13, Y, 1, T, "#a8834a");
+  rect(c, X + 7, Y + 6, 2, 4, "#a8834a");
+  rect(c, X + 6, Y + 7, 4, 2, "#a8834a");
+}
+
+function table(c, X, Y, tx, ty) {
+  floor(c, X, Y, tx, ty);
+  rect(c, X + 2, Y + 11, 2, 4, "#2a170c");
+  rect(c, X + 12, Y + 11, 2, 4, "#2a170c");
+  rect(c, X + 1, Y + 4, 14, 8, "#6e4424");
+  rect(c, X + 2, Y + 5, 12, 1, "#8a5a30");
+  rect(c, X + 1, Y + 11, 14, 1, "#3a220e");
+  // a skull or a little book on the table
+  if (hash(tx, ty, 5) % 2) {
+    rect(c, X + 5, Y + 5, 5, 4, "#d8d0c0");
+    rect(c, X + 6, Y + 6, 1, 1, "#120c18");
+    rect(c, X + 8, Y + 6, 1, 1, "#120c18");
+  } else {
+    rect(c, X + 5, Y + 6, 6, 3, "#4a2e7a");
+    rect(c, X + 5, Y + 6, 6, 1, "#e8e0d0");
+  }
+}
+
+function candle(c, X, Y, tx, ty) {
+  floor(c, X, Y, tx, ty);
+  rect(c, X + 5, Y + 13, 6, 2, "#3a3248");
+  rect(c, X + 6, Y + 9, 4, 5, "#3a3248");
+  rect(c, X + 7, Y + 4, 2, 5, "#efe6d0");
+  rect(c, X + 6, Y + 8, 1, 1, "#efe6d0");
+}
+
+function barrel(c, X, Y, tx, ty) {
+  floor(c, X, Y, tx, ty);
+  rect(c, X + 3, Y + 2, 10, 12, "#6a4020");
+  rect(c, X + 2, Y + 4, 12, 8, "#6a4020");
+  rect(c, X + 2, Y + 5, 12, 1, "#3a3248");
+  rect(c, X + 2, Y + 10, 12, 1, "#3a3248");
+  rect(c, X + 4, Y + 2, 8, 1, "#8a5a30");
+}
+
+function coffin(c, X, Y, tx, ty) {
+  floor(c, X, Y, tx, ty);
+  rect(c, X + 5, Y + 1, 6, 1, "#3a2010");
+  rect(c, X + 4, Y + 2, 8, 12, "#4a2a14");
+  rect(c, X + 3, Y + 4, 10, 5, "#4a2a14");
+  rect(c, X + 5, Y + 14, 6, 1, "#4a2a14");
+  rect(c, X + 7, Y + 5, 2, 6, "#c9a030");
+  rect(c, X + 6, Y + 7, 4, 1, "#c9a030");
+}
+
+function pumpkin(c, X, Y, tx, ty) {
+  grass(c, X, Y, tx, ty);
+  rect(c, X + 3, Y + 6, 10, 8, "#e8742a");
+  rect(c, X + 2, Y + 8, 12, 4, "#e8742a");
+  rect(c, X + 6, Y + 6, 1, 8, "#c05a1a");
+  rect(c, X + 9, Y + 6, 1, 8, "#c05a1a");
+  rect(c, X + 7, Y + 4, 2, 2, "#3d6a3a");
+  rect(c, X + 4, Y + 8, 2, 2, "#ffd166");
+  rect(c, X + 10, Y + 8, 2, 2, "#ffd166");
+  rect(c, X + 5, Y + 11, 6, 1, "#ffd166");
+}
+
 function crypt(c, X, Y, tx, ty) {
   grass(c, X, Y, tx, ty);
   rect(c, X + 1, Y + 4, 14, 11, "#5d6472");
@@ -437,6 +769,12 @@ function gate(c, X, Y, tx, ty, open) {
   rect(c, X + 7, Y + 7, 2, 3, "#e8c040");
 }
 
+const PAINTERS = {
+  "#": wall, ",": grass, "-": path, T: tree, "+": grave, "~": fence,
+  W: web, r: carpet, L: table, K: candle, R: barrel, P: coffin, J: pumpkin,
+  c: crypt, d: trapdoor, e: chest, f: skull,
+};
+
 function renderBackground() {
   const c = bg.getContext("2d");
   for (let ty = 0; ty < ROWS; ty++) {
@@ -445,25 +783,10 @@ function renderBackground() {
       if (DOORS.includes(ch)) {
         if (solved.has(Number(ch) - 1)) doorway(c, X, Y, tx, ty, false);
         else door(c, X, Y, tx, ty);
-        continue;
-      }
-      switch (ch) {
-        case "#": wall(c, X, Y, tx, ty); break;
-        case ",": grass(c, X, Y, tx, ty); break;
-        case "-": path(c, X, Y, tx, ty); break;
-        case "T": tree(c, X, Y, tx, ty); break;
-        case "+": grave(c, X, Y, tx, ty); break;
-        case "~": fence(c, X, Y, tx, ty); break;
-        case "B": shelf(c, X, Y, tx, ty, false); break;
-        case "b": shelf(c, X, Y, tx, ty, true); break;
-        case "O": doorway(c, X, Y, tx, ty, true); break;
-        case "c": crypt(c, X, Y, tx, ty); break;
-        case "d": trapdoor(c, X, Y, tx, ty); break;
-        case "e": chest(c, X, Y, tx, ty); break;
-        case "f": skull(c, X, Y, tx, ty); break;
-        case "g": gate(c, X, Y, tx, ty, solved.has(7)); break;
-        default: floor(c, X, Y, tx, ty); // "." and "a" (Boo-ker is drawn live)
-      }
+      } else if (ch === "B" || ch === "b") shelf(c, X, Y, tx, ty, ch === "b");
+      else if (ch === "O") doorway(c, X, Y, tx, ty, true);
+      else if (ch === "g") gate(c, X, Y, tx, ty, solved.has(7));
+      else (PAINTERS[ch] || floor)(c, X, Y, tx, ty); // "." and "a" (Boo-ker is drawn live)
     }
   }
 }
@@ -478,14 +801,81 @@ function hole(c, x, y, r) {
   c.fill();
 }
 
+function drawNpc(n, now) {
+  const x = Math.round(n.x * T), y = Math.round(n.y * T);
+  if (n.kind === "skeleton") {
+    const legs = SKELETON_LEGS[Math.floor(now / 220) % 2];
+    rect(ctx, x + 4, y + 14, 8, 2, "rgba(0,0,0,0.35)");
+    sprite(ctx, [...SKELETON_TOP, ...legs], SKELETON_PAL, x, y - 2, n.dir < 0);
+  } else {
+    rect(ctx, x + 7, n.top * T - 4, 1, y - n.top * T + 9, "rgba(225,225,240,0.5)"); // the thread
+    sprite(ctx, SPIDER, SPIDER_PAL, x, y);
+  }
+}
+
+function nunTop() {
+  return NUN_POS.y * T + T - NUN.length; // her feet stand on the bottom of the tile
+}
+
+function drawNun(now) {
+  // Her head bobs while she sobs. Not a sound.
+  const sob = Math.floor(now / 300) % 2;
+  const x = NUN_POS.x * T, y = nunTop();
+  rect(ctx, x + 1, y + NUN.length - 1, 14, 2, "rgba(0,0,0,0.35)");
+  sprite(ctx, NUN.slice(12), NUN_PAL, x, y + 12);
+  sprite(ctx, NUN.slice(0, 12), NUN_PAL, x, y + sob);
+}
+
+function drawTears(now) {
+  // Tears drip from her cheeks to the floor, drawn on top of the darkness so they glisten
+  const x = NUN_POS.x * T, y = nunTop();
+  const fall = 10; // pixels from cheek to floor
+  for (const [cx, offset] of [[6, 0], [9, 5]]) {
+    const d = (Math.floor(now / 90) + offset) % fall;
+    rect(ctx, x + cx, y + 11 + d, 1, 1, "#bfe8ff");
+  }
+}
+
+// A warm golden glow, added on top of the picture
+function glow(x, y, r, alpha) {
+  const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+  g.addColorStop(0, `rgba(255,170,60,${alpha})`);
+  g.addColorStop(1, "rgba(255,170,60,0)");
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawEyes(n) {
+  // Glowing eyes, drawn on top of the darkness
+  const x = Math.round(n.x * T), y = Math.round(n.y * T);
+  const color = n.kind === "skeleton" ? "#ff2a2a" : "#ff3355";
+  const ey = n.kind === "skeleton" ? y + 1 : y + 6;
+  rect(ctx, x + 6, ey, 1, 1, color);
+  rect(ctx, x + 9, ey, 1, 1, color);
+}
+
 function draw(now) {
   ctx.drawImage(bg, 0, 0);
+
+  // Candle flames
+  const flick = Math.floor(now / 140) % 2;
+  for (const l of lights) {
+    if (l.ch !== "K") continue;
+    const X = l.x * T, Y = l.y * T;
+    rect(ctx, X + 7, Y + 2, 2, 2, flick ? "#ffd166" : "#ff9a3c");
+    rect(ctx, X + 7 + flick, Y + 1, 1, 1, "#ffe9a8");
+  }
 
   // Boo-ker floats in the foyer
   const [gx, gy] = stationPos[1];
   const bob = Math.round(Math.sin(now / 400) * 1.5);
   rect(ctx, gx * T + 4, gy * T + 14, 8, 2, "rgba(0,0,0,0.35)");
   sprite(ctx, GHOST, GHOST_PAL, gx * T, gy * T - 3 + bob);
+
+  NPCS.forEach((n) => drawNpc(n, now));
+  drawNun(now);
 
   // Bouncing arrow above the next challenge
   const target = nextLevel() || (escaped ? null : 7);
@@ -497,13 +887,13 @@ function draw(now) {
     rect(ctx, ax + 2, ay + 3, 2, 1, "#ffd166");
   }
 
-  // Player
+  // Baby Daisy
   const px = Math.round(player.px * T), py = Math.round(player.py * T);
   const walk = player.moving ? Math.floor(now / 110) % 2 : 0;
   rect(ctx, px + 4, py + 14, 8, 2, "rgba(0,0,0,0.4)");
   sprite(ctx, PLAYER, PLAYER_PAL, px, py - 2 - walk, player.flip);
 
-  // Darkness with a flickering lantern around the player
+  // Darkness with a flickering lantern around Daisy, and small glows around candles
   const d = dark.getContext("2d");
   d.globalCompositeOperation = "source-over";
   d.clearRect(0, 0, dark.width, dark.height);
@@ -512,8 +902,22 @@ function draw(now) {
   d.globalCompositeOperation = "destination-out";
   hole(d, px + 8, py + 6, 76 + Math.sin(now / 90) * 2 + Math.sin(now / 37));
   hole(d, gx * T + 8, gy * T + 6, 20);
+  hole(d, NUN_POS.x * T + 8, nunTop() + 8, 16); // a faint glow, so you can just see her
+  for (const l of lights) hole(d, l.x * T + 8, l.y * T + 4, 18 + Math.sin(now / 70 + l.x) * 1.5);
   if (target) hole(d, stationPos[target][0] * T + 8, stationPos[target][1] * T + 6, 22);
   ctx.drawImage(dark, 0, 0);
+
+  // Golden glow: strongest around candles and pumpkins, softer around Daisy's lantern
+  if (!escaped) {
+    ctx.globalCompositeOperation = "lighter";
+    glow(px + 8, py + 6, 80 + Math.sin(now / 90) * 2, 0.13);
+    for (const l of lights) glow(l.x * T + 8, l.y * T + 3, 26 + Math.sin(now / 70 + l.x) * 2, 0.22);
+    if (target) glow(stationPos[target][0] * T + 8, stationPos[target][1] * T + 6, 24, 0.12);
+    ctx.globalCompositeOperation = "source-over";
+  }
+
+  NPCS.forEach(drawEyes);
+  drawTears(now);
 }
 
 /* ---------- Movement ---------- */
@@ -554,7 +958,30 @@ function tryMove(dx, dy) {
   player.moving = true;
 }
 
-function update(dt) {
+function updateNpcs(dt, now) {
+  for (const n of NPCS) {
+    if (n.kind === "skeleton") {
+      n.x += (n.dir * n.speed * dt) / 1000;
+      if (n.x > n.max) { n.x = n.max; n.dir = -1; }
+      if (n.x < n.min) { n.x = n.min; n.dir = 1; }
+    } else {
+      n.y = n.top + ((1 - Math.cos((now / 1000) * n.speed)) / 2) * n.range;
+    }
+
+    // Moan a slogan when Daisy walks past
+    const close = Math.hypot(n.x - player.px, n.y - player.py) < 2.5;
+    if (started && !dialogLevel && close && now > n.next && now > talkNext) {
+      const [shown, spoken] = pick(PHRASES);
+      bubble(shown, n.x, n.y, "monster");
+      if (n.kind === "skeleton") say(spoken, 0.1, 0.55);
+      else say(spoken, 1.7, 0.5);
+      n.next = now + 15000;
+      talkNext = now + 5000;
+    }
+  }
+}
+
+function update(dt, now) {
   if (player.moving) {
     player.t += dt / STEP_MS;
     if (player.t >= 1) {
@@ -562,7 +989,9 @@ function update(dt) {
       player.px = player.x;
       player.py = player.y;
       sfx.step();
-      if (tileAt(player.x, player.y) === "g" && !escaped) escape();
+      const here = tileAt(player.x, player.y);
+      if (DOORS.includes(here) || here === "O") sfx.door(0.5);
+      if (here === "g" && !escaped) escape();
     } else {
       player.px = player.fx + (player.x - player.fx) * player.t;
       player.py = player.fy + (player.y - player.fy) * player.t;
@@ -572,6 +1001,7 @@ function update(dt) {
     const [dx, dy] = DIRS[held[held.length - 1]];
     tryMove(dx, dy);
   }
+  updateNpcs(dt, now);
 }
 
 function interact() {
@@ -592,7 +1022,7 @@ function openStation(id) {
 
 let last = performance.now();
 function loop(now) {
-  update(Math.min(now - last, 50));
+  update(Math.min(now - last, 50), now);
   last = now;
   draw(now);
   requestAnimationFrame(loop);
@@ -617,18 +1047,21 @@ function updateHud() {
     : next ? `Next: ${WHERE[next]}` : "The gate is open. Walk through it to escape!";
 }
 
+SCARE_PHOTOS.forEach((src) => (new Image().src = `/static/${src}`)); // preload
+
 function jumpscare() {
   if (!scaresOn) return;
-  // Sometimes the pixel ghost, sometimes the photo
-  const photo = Math.random() < 0.35;
+  // Half the time the pixel ghost, half the time a random photo
+  const photo = Math.random() < 0.5;
   $("#scare-canvas").classList.toggle("hidden", photo);
   $("#scare-photo").classList.toggle("hidden", !photo);
+  if (photo) $("#scare-photo").src = `/static/${pick(SCARE_PHOTOS)}`;
   const el = $("#scare");
   el.className = "";
   void el.offsetWidth; // restart the animation
   el.className = "show";
   sfx.scare();
-  setTimeout(() => (el.className = "hidden"), 900);
+  setTimeout(() => (el.className = "hidden"), 1300);
 }
 
 function scheduleRandomScare() {
@@ -642,6 +1075,7 @@ function escape() {
   escaped = true;
   sfx.win();
   updateHud();
+  daisySays("Yaaay! We did it!");
   setTimeout(() => $("#victory").classList.remove("hidden"), 500);
 }
 
@@ -678,7 +1112,7 @@ function renderDialog(typewriter) {
     ${done
       ? `<div class="learned"><b>Boo-ker says:</b> ${fmt(l.learned)}</div>`
       : `<form id="answer-form">
-           <input id="answer" placeholder="Type the secret code..." autocomplete="off">
+           <input id="answer" placeholder="Type your answer..." autocomplete="off">
            <button class="btn" type="submit">UNLOCK</button>
            ${shown < l.hints.length ? `<button id="hint" class="btn ghosty" type="button">HINT ${shown}/${l.hints.length}</button>` : ""}
          </form>
@@ -724,9 +1158,12 @@ async function submit(e) {
     renderBackground();
     updateHud();
     sfx.win();
+    // Rooms 1, 3, 4, 5 unlock a door and room 7 opens the gate
+    if ([1, 3, 4, 5, 7].includes(l.id)) setTimeout(() => sfx.door(), 500);
     renderDialog(false);
     toast(UNLOCKED[l.id]);
-    if (l.id < 7 && Math.random() < 0.5) setTimeout(jumpscare, 1200);
+    setTimeout(() => daisySays(pick(["Yaaay!", "Wheee!", "Hee hee!"])), 700);
+    if (l.id < 7 && Math.random() < 0.5) setTimeout(jumpscare, 2200);
   } else {
     sfx.nope();
     const box = $("#dialog");
@@ -735,7 +1172,7 @@ async function submit(e) {
     box.classList.add("shake");
     $("#feedback").textContent = pick([
       "The door doesn't budge...",
-      "A cold breath on your neck. Wrong code.",
+      "A cold breath on your neck. Wrong answer.",
       "Something giggles in the dark. Try again.",
       "Nope. The ghost shakes its head.",
     ]);
@@ -797,23 +1234,34 @@ $("#enter").addEventListener("click", () => {
   updateMusic();
   sfx.creak();
   scheduleRandomScare();
+  scheduleDaisy();
   toast(solved.size ? "Welcome back... the ghosts remember you." : "The gate slams shut behind you. Find a way into the manor...");
+  setTimeout(() => daisySays("Hiii! I'm Daisy!"), 1500);
 });
 
-$("#snd").addEventListener("click", (e) => {
-  soundOn = !soundOn;
-  localStorage.setItem("manor.sound", soundOn ? "on" : "off");
-  updateMusic();
-  updateHud();
-  e.target.blur();
-});
+/* The SOUND and SCARES buttons don't switch anything off. They laugh at you instead.
+   Drop laugh-cat.mp3 / laugh-people.mp3 into app/static to use real recordings;
+   without them a laugh is generated. */
+let trollTimer;
+function troll() {
+  const cat = Math.random() < 0.5;
+  audio().resume(); // the click may come before "Enter if you dare"
+  $("#troll-img").src = `/static/troll-${cat ? "cat" : "people"}.png`;
+  $("#troll").classList.remove("hidden");
+  const file = new Audio(`/static/laugh-${cat ? "cat" : "people"}.mp3`);
+  file.play().catch(() => synthLaugh(cat));
+  if (canSpeak) speechSynthesis.cancel();
+  say(cat ? "Hehehehe! Meow!" : "Ha ha ha ha! Nice try!", cat ? 2 : 1.3, 1.3);
+  clearTimeout(trollTimer);
+  trollTimer = setTimeout(() => $("#troll").classList.add("hidden"), 2500);
+}
 
-$("#scr").addEventListener("click", (e) => {
-  scaresOn = !scaresOn;
-  localStorage.setItem("manor.scares", scaresOn ? "on" : "off");
-  updateHud();
-  e.target.blur();
-});
+for (const id of ["#snd", "#scr"]) {
+  $(id).addEventListener("click", (e) => {
+    e.target.blur();
+    troll();
+  });
+}
 
 $("#rst").addEventListener("click", (e) => {
   e.target.blur();
