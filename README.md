@@ -19,7 +19,7 @@ docker run hello-world
 
 ### 2. Enter the manor
 ```bash
-docker run -d -p 8000:8000 --name manor ghcr.io/OWNER/haunted-manor:latest
+docker run -d -p 8000:8000 --name manor ghcr.io/panaceametis/haunted-manor:latest
 ```
 Open the **Ports** tab (next to Terminal), find port **8000** and click the 🌐 globe icon.
 Turn your sound on, then follow the game. 👻
@@ -28,19 +28,7 @@ Turn your sound on, then follow the game. 👻
 
 ---
 
-## 🧙 For the facilitator
-
-### One-time setup (do this before the workshop)
-1. Push this folder to a **public** GitHub repo.
-2. The `publish-image` GitHub Action builds the image and pushes it to
-   `ghcr.io/<your-github-username>/haunted-manor:latest`. Check the **Actions** tab to see it finish.
-3. Make the image public: GitHub profile → **Packages** → `haunted-manor` → **Package settings** →
-   **Change visibility → Public**. Otherwise trainees get "denied" when they pull it.
-4. In this README, replace `OWNER` with your GitHub username in lowercase.
-5. Do a dry run: open your own Codespace and play through all 7 rooms.
-
-Ask trainees to create a GitHub account before the workshop. Codespaces is free for personal
-accounts (about 60 hours a month on a 2-core machine).
+Create a GitHub account before the workshop. Codespaces is free for personal accounts.
 
 ### Room overview and answer key
 
