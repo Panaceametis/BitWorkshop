@@ -49,14 +49,30 @@ LEVELS = [
         "help": "docker run --help",
         "answers": ["up"],
         "prefix": True,
-        "learned": "`docker run` makes a new container from an image. \"Up\" means it is running.",
+        "learned": "Yes! \"Up\" means the ghost is running. Let's take that command apart:"
+                   "<ul>"
+                   "<li>`docker` = Every command starts with this.</li>"
+                   "<li>`run` = make a new container from an image and start it.</li>"
+                   "<li>`-d` = \"detached\": run in the background.</li>"
+                   "<li>`--name ghost` = call the container ghost. Without it, Docker picks a random "
+                   "name like julian_is_stinky.</li>"
+                   "<li>`{IMAGE}` = the image (the blueprint) to make the container from. "
+                   "The part after the `:` is the version, called the tag.</li>"
+                   "<li>`manor library` = what the container should do. Normally this image starts the "
+                   "game website. Anything you type after the image name replaces that. Here we say: "
+                   "don't start the website, run the little `manor` program in library mode instead "
+                   "(the ghost that writes in its diary).</li>"
+                   "</ul>"
+                   "In `docker ps` you also see manor, the game itself. "
+                   "Two containers made from the same image!",
     },
     {
         "id": 3, "name": "The Crypt", "emoji": "⚰️",
         "story": "The ghost is getting sleepy. \"Shhh... let it rest,\" whispers Boo-ker.",
-        "mission": "Stop the ghost:<br>`docker stop ghost`<br>"
-                   "Type `docker ps`. The ghost is gone from the list! But it still exists. "
-                   "Type `docker ps -a` to see ALL containers, also the stopped ones. "
+        "mission": "Step 1: type `docker ps`. The ghost is still in the list, it is running.<br>"
+                   "Step 2: stop the ghost with `docker stop ghost`<br>"
+                   "Step 3: type `docker ps` again. The ghost is gone from the list!<br>"
+                   "Step 4: type `docker ps -a` to see ALL containers. "
                    "What does the ghost's STATUS start with now?",
         "hints": [
             "`-a` means \"all\". `docker ps` only shows running containers, `docker ps -a` shows every container.",
@@ -66,8 +82,13 @@ LEVELS = [
         "help": "docker ps --help",
         "answers": ["exited"],
         "prefix": True,
-        "learned": "`docker stop` stops a container, but does not delete it. "
-                   "`docker ps -a` shows stopped containers too.",
+        "learned": "`docker stop` stops a container, but does not delete it. It is just not running anymore."
+                   "<ul>"
+                   "<li>`docker ps` = only the running containers.</li>"
+                   "<li>`docker ps -a` = ALL containers, running and stopped (`-a` = all).</li>"
+                   "</ul>"
+                   "A stopped container keeps its name and its files, so you can start it again later. "
+                   "You'll do that in the next room!",
     },
     {
         "id": 4, "name": "The Cellar", "emoji": "🕯️",
@@ -141,6 +162,7 @@ def public_levels():
         item = {k: v for k, v in lvl.items() if k not in ("answers", "prefix")}
         item["mission"] = lvl["mission"].replace("{IMAGE}", IMAGE)
         item["hints"] = [h.replace("{IMAGE}", IMAGE) for h in lvl["hints"]]
+        item["learned"] = lvl["learned"].replace("{IMAGE}", IMAGE)
         out.append(item)
     return out
 
