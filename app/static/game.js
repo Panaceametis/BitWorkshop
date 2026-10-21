@@ -55,7 +55,8 @@ const PHRASES = [
   ["Teeeam... Fiiiirrrst...", "Teeeam... Fiiirst..."],
   ["Nooo prototyyype... nooo meeeeting...", "Nooo prototype... Nooo meeeting..."],
   ["Puuushing the staaatus quooooo...", "Puuushing... the staaatus quooo..."],
-  ["Weeehee... llllllead... We leaaar...nnnnn...", "Wee hee... lllead... We learrr... nnn..."],
+  // Spelled for the voice: "lead" would otherwise be read as "led"
+  ["Weeehee... llllllead... We leaaar...nnnnn...", "Weee... heee... We leeeed... We lurrrrn..."],
 ];
 const DAISY_LINES = ["Hiii!", "I'm Daisy!", "Hee hee hee!", "Wheee!", "Uh-oh!", "Boo!", "Daisy!", "Ooooh!"];
 const SCARE_PHOTOS = ["scare-face.png", "scare-1.png", "scare-2.png", "scare-3.png",
@@ -350,8 +351,53 @@ function synthLaugh(cat) {
   }
 }
 
+// The nun's soft crying: three breathy sniffles, then a small wobbly whimper
+function breath(t, dur, vol) {
+  const a = audio(), n = Math.floor(a.sampleRate * dur);
+  const buf = a.createBuffer(1, n, a.sampleRate), d = buf.getChannelData(0);
+  for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+  const s = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain();
+  s.buffer = buf;
+  f.type = "bandpass";
+  f.frequency.value = 1300;
+  f.Q.value = 1.2;
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(vol, t + dur * 0.3);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  s.connect(f).connect(g).connect(a.destination);
+  s.start(t);
+}
+
+function whimper(t) {
+  const a = audio(), o = a.createOscillator(), f = a.createBiquadFilter(), g = a.createGain();
+  const wobble = a.createOscillator(), depth = a.createGain();
+  o.type = "triangle";
+  o.frequency.setValueAtTime(540, t);
+  o.frequency.linearRampToValueAtTime(430, t + 1.1);
+  wobble.frequency.value = 6;
+  depth.gain.value = 14;
+  wobble.connect(depth).connect(o.frequency);
+  f.type = "lowpass";
+  f.frequency.value = 1400;
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(0.035, t + 0.25);
+  g.gain.linearRampToValueAtTime(0, t + 1.2);
+  o.connect(f).connect(g).connect(a.destination);
+  o.start(t);
+  wobble.start(t);
+  o.stop(t + 1.3);
+  wobble.stop(t + 1.3);
+}
+
+function sob() {
+  const t = audio().currentTime;
+  for (let i = 0; i < 3; i++) breath(t + i * 0.28, 0.16, 0.06);
+  whimper(t + 0.95);
+}
+
 const sfx = {
-  scare() { if (soundOn) pick([shriek, boooo, scream, thud])(); },
+  scare() { if (soundOn) shriek(); },
+  sob() { if (soundOn) sob(); },
   door(dur = 1.3) { if (soundOn) doorCreak(dur); },
   win() { if (!soundOn) return; [523, 659, 784, 1047].forEach((f, i) => tone("square", f, f * 1.01, 0.18, 0.08, i * 0.09)); },
   nope() { if (!soundOn) return; tone("sawtooth", 160, 70, 0.4, 0.15); },
@@ -444,20 +490,28 @@ function updateMusic() {
 
 /* ---------- Voices (the browser's built-in speech) ---------- */
 const canSpeak = "speechSynthesis" in window;
-let voices = [];
-const loadVoices = () => (voices = speechSynthesis.getVoices().filter((v) => v.lang.startsWith("en")));
+// Browsers don't say which voices are male or female, so we go by common voice names
+const MALE = /\b(guy|david|mark|george|ryan|christopher|eric|daniel|fred|alex|james|thomas|brian|andrew|roger|steffan|male)\b/i;
+const FEMALE = /\b(zira|jenny|aria|samantha|susan|hazel|libby|sonia|emma|michelle|ana|karen|moira|tessa|victoria|female)\b/i;
+const voices = { male: null, female: null, any: null };
+function loadVoices() {
+  const english = speechSynthesis.getVoices().filter((v) => v.lang.startsWith("en"));
+  voices.any = english[0] || null;
+  voices.male = english.find((v) => MALE.test(v.name)) || voices.any;
+  voices.female = english.find((v) => FEMALE.test(v.name)) || voices.any;
+}
 if (canSpeak) {
   loadVoices();
   speechSynthesis.onvoiceschanged = loadVoices;
 }
 
-function say(text, pitch, rate, volume = 1) {
+function say(text, pitch, rate, volume = 1, voice = "any") {
   if (!soundOn || !canSpeak || speechSynthesis.speaking) return;
   const u = new SpeechSynthesisUtterance(text);
   u.pitch = pitch;
   u.rate = rate;
   u.volume = volume;
-  if (voices.length) u.voice = voices[0];
+  if (voices[voice]) u.voice = voices[voice];
   speechSynthesis.speak(u);
 }
 
@@ -473,14 +527,14 @@ function bubble(text, tx, ty, cls = "") {
 
 function daisySays(text) {
   bubble(text, player.px, player.py - 0.2, "daisy");
-  say(text, 2, 1.2, 0.9);
+  say(text, 2, 1.2, 0.55, "female");
 }
 
 function scheduleDaisy() {
   setTimeout(() => {
     if (started && !dialogLevel && !escaped && !document.hidden) daisySays(pick(DAISY_LINES));
     scheduleDaisy();
-  }, 20000 + Math.random() * 30000);
+  }, 45000 + Math.random() * 45000);
 }
 
 /* ---------- Pixel drawing ---------- */
@@ -958,6 +1012,16 @@ function tryMove(dx, dy) {
   player.moving = true;
 }
 
+let nunNext = 0;
+function updateNun(now) {
+  // She only cries softly when Daisy is close by
+  const close = Math.hypot(NUN_POS.x - player.px, NUN_POS.y - player.py) < 3.5;
+  if (started && !dialogLevel && close && now > nunNext) {
+    sfx.sob();
+    nunNext = now + 3500 + Math.random() * 2500;
+  }
+}
+
 function updateNpcs(dt, now) {
   for (const n of NPCS) {
     if (n.kind === "skeleton") {
@@ -973,10 +1037,11 @@ function updateNpcs(dt, now) {
     if (started && !dialogLevel && close && now > n.next && now > talkNext) {
       const [shown, spoken] = pick(PHRASES);
       bubble(shown, n.x, n.y, "monster");
-      if (n.kind === "skeleton") say(spoken, 0.1, 0.55);
-      else say(spoken, 1.7, 0.5);
-      n.next = now + 15000;
-      talkNext = now + 5000;
+      // Both male voices: skeletons very deep, spiders a little higher
+      if (n.kind === "skeleton") say(spoken, 0.1, 0.55, 0.45, "male");
+      else say(spoken, 0.6, 0.5, 0.45, "male");
+      n.next = now + 45000; // each monster waits 45 s before moaning again
+      talkNext = now + 20000; // and at least 20 s between any two monsters
     }
   }
 }
@@ -1002,6 +1067,7 @@ function update(dt, now) {
     tryMove(dx, dy);
   }
   updateNpcs(dt, now);
+  updateNun(now);
 }
 
 function interact() {
@@ -1243,23 +1309,24 @@ $("#enter").addEventListener("click", () => {
    Drop laugh-cat.mp3 / laugh-people.mp3 into app/static to use real recordings;
    without them a laugh is generated. */
 let trollTimer;
-function troll() {
-  const cat = Math.random() < 0.5;
+function troll(cat) {
   audio().resume(); // the click may come before "Enter if you dare"
   $("#troll-img").src = `/static/troll-${cat ? "cat" : "people"}.png`;
   $("#troll").classList.remove("hidden");
   const file = new Audio(`/static/laugh-${cat ? "cat" : "people"}.mp3`);
   file.play().catch(() => synthLaugh(cat));
   if (canSpeak) speechSynthesis.cancel();
-  say(cat ? "Hehehehe! Meow!" : "Ha ha ha ha! Nice try!", cat ? 2 : 1.3, 1.3);
+  if (cat) say("Hehehehe! Meow!", 2, 1.3, 1, "female");
+  else say("Ha ha ha ha! Nice try!", 1.1, 1.3, 1, "male");
   clearTimeout(trollTimer);
   trollTimer = setTimeout(() => $("#troll").classList.add("hidden"), 2500);
 }
 
-for (const id of ["#snd", "#scr"]) {
+// SOUND shows the laughing cat, SCARES shows the laughing people
+for (const [id, cat] of [["#snd", true], ["#scr", false]]) {
   $(id).addEventListener("click", (e) => {
     e.target.blur();
-    troll();
+    troll(cat);
   });
 }
 
