@@ -1115,13 +1115,26 @@ function updateHud() {
 
 SCARE_PHOTOS.forEach((src) => (new Image().src = `/static/${src}`)); // preload
 
+// A shuffled deck of scares: every photo (and the pixel ghost) shows up once before any repeats
+let scareDeck = [];
+function nextScare() {
+  if (!scareDeck.length) {
+    scareDeck = [...SCARE_PHOTOS, "ghost"];
+    for (let i = scareDeck.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [scareDeck[i], scareDeck[j]] = [scareDeck[j], scareDeck[i]];
+    }
+  }
+  return scareDeck.pop();
+}
+
 function jumpscare() {
   if (!scaresOn) return;
-  // Half the time the pixel ghost, half the time a random photo
-  const photo = Math.random() < 0.5;
+  const card = nextScare();
+  const photo = card !== "ghost";
   $("#scare-canvas").classList.toggle("hidden", photo);
   $("#scare-photo").classList.toggle("hidden", !photo);
-  if (photo) $("#scare-photo").src = `/static/${pick(SCARE_PHOTOS)}`;
+  if (photo) $("#scare-photo").src = `/static/${card}`;
   const el = $("#scare");
   el.className = "";
   void el.offsetWidth; // restart the animation
