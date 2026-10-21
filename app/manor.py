@@ -38,9 +38,9 @@ def library():
         print(f"[library] I remember you! I wrote something down last time, and it is still here. "
               f"Code: {CODES['crypt']}")
     print("[library] ...creak...", flush=True)
+    # Keep running quietly. Printing more lines here would bury the codes in the logs.
     while True:
-        time.sleep(15)
-        print("[library] ...still lurking...", flush=True)
+        time.sleep(3600)
 
 
 ROOMS = {"foyer": foyer, "library": library}
