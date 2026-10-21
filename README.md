@@ -44,25 +44,32 @@ accounts (about 60 hours a month on a 2-core machine).
 
 ### Room overview and answer key
 
-| # | Room | Concept | Command(s) | Code |
-|---|------|---------|------------|------|
-| 1 | Foyer | images vs containers, `run`, `--rm` | `docker run --rm IMG manor foyer` | `WHISPER-7421` |
-| 2 | Library | `-d`, `--name`, `logs` | `docker run -d --name library IMG manor library` + `docker logs library` | `CANDLE-1305` |
-| 3 | Crypt | lifecycle, writable layer | `docker restart library` + `docker logs library` | `BONES-8864` |
-| 4 | Cellar | `exec`, container filesystem | `docker exec -it library sh` → `cat /cellar/.whisper` | `COBWEB-2290` |
-| 5 | Attic | ports, env vars, multiple instances | `docker run -d -p 8001:8000 -e GHOST_NAME=Casper --name attic IMG` → `/attic` | `MOONLIT-5173` |
-| 6 | Dungeon | Dockerfile, `build` | complete `exercises/dungeon/Dockerfile`, `docker build -t dungeon .`, `docker run --rm dungeon` | `CHAINS-6048` |
-| 7 | Exit | cleanup, `rm` | `docker rm -f library attic` | answer `docker rm` |
+Baby steps: every room teaches one or two basic commands, and the command is given in the mission.
 
-The solution for room 6 is in `exercises/dungeon/SOLUTION.Dockerfile`.
+| # | Room | Teaches | Command(s) | Answer |
+|---|------|---------|------------|--------|
+| 1 | Foyer | see running containers | `docker ps` | `manor` |
+| 2 | Library | start a new container | `docker run -d --name ghost IMG manor library` + `docker ps` | `Up` |
+| 3 | Crypt | stop, and see all containers | `docker stop ghost` + `docker ps` + `docker ps -a` | `Exited` |
+| 4 | Cellar | start again, read the output | `docker start ghost` + `docker logs ghost` | `BONES-8864` or `CANDLE-1305` |
+| 5 | Attic | find a command with `--help`, delete a container | `docker --help` → `docker stop ghost` + `docker rm ghost` | `docker rm ghost` (or `docker rm`) |
+| 6 | Dungeon | auto-cleanup with `--rm` | `docker run --rm IMG manor foyer` + `docker ps -a` | `WHISPER-7421` |
+| 7 | Exit | images vs containers | `docker images` | `latest` |
 
 ### Discussion moments
-- **After room 3:** have someone `docker rm -f library`, run it again and look at the logs. The
-  boot counter is back to 1. Why? (The writable layer belongs to the container, not the image.)
-- **After room 4:** run `ps` inside the container. Why are there so few processes? (Process isolation.)
-- **After room 5:** two containers from one image, configured differently. This leads straight
-  into Kubernetes: "now imagine 50 of these".
-- **After room 6:** `docker history dungeon` shows one layer per Dockerfile line.
+- **After room 3:** why does the ghost disappear from `docker ps` but not from `docker ps -a`?
+- **After room 4:** the logs say "boot #2". Why does the ghost remember? (It's the same container,
+  and stopping doesn't wipe its files. `docker rm` does.)
+- **After room 7:** one image, many containers: like a recipe and cakes, or a class and its
+  instances. This leads straight into Kubernetes: "now imagine 50 of these".
+
+### Bonus challenges (for fast trainees)
+The image also supports some harder tasks that aren't in the game:
+- `docker exec -it manor sh`, then `cat /cellar/.whisper`: go inside a running container.
+- `docker run -d -p 8001:8000 -e GHOST_NAME=Casper --name attic IMG`, then open `/attic` on
+  port 8001: ports and environment variables.
+- Complete `exercises/dungeon/Dockerfile` (solution in `SOLUTION.Dockerfile`), then
+  `docker build -t dungeon .` and `docker run --rm dungeon`: build your own image.
 
 ### Running it locally (without the registry)
 ```bash
