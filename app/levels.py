@@ -1,13 +1,14 @@
-"""Room definitions and secret codes for the Haunted Container Manor.
+"""Room definitions for the Haunted Container Manor.
 
-Every code is printed by a real Docker task (see app/manor.py, /attic in main.py
-and exercises/dungeon), so a trainee can only get it by actually doing the work.
+Baby steps: every room teaches one or two basic commands. The answer is always
+something the trainee can only see by running the command (a name, a status, a code).
 """
 import os
 import re
 
 IMAGE = os.getenv("IMAGE_NAME", "haunted-manor")
 
+# Codes printed by the `manor` command (app/manor.py) and the /attic page (app/main.py)
 CODES = {
     "foyer": "WHISPER-7421",
     "library": "CANDLE-1305",
@@ -20,95 +21,115 @@ CODES = {
 LEVELS = [
     {
         "id": 1, "name": "The Foyer", "emoji": "🚪",
-        "story": "The front door slams shut behind you. A tiny ghost called Boo-ker floats over: "
-                 "\"You're already standing inside a container, you know. Can you summon me again, "
-                 "from the outside?\"",
-        "mission": "Run a throwaway container from the manor image that executes the command `manor foyer`. "
-                   "It should delete itself when it finishes. Type the code it prints.",
+        "story": "A tiny ghost floats over to you. \"Hi! I'm Boo-ker. Did you know you are inside a "
+                 "container right now? This whole game is one!\"",
+        "mission": "Let's find this game's container. In the terminal, type:<br>`docker ps`<br>"
+                   "This shows all containers that are running right now. "
+                   "Look at the NAMES column (all the way on the right). What is the game's container called?",
         "hints": [
-            "`docker run IMAGE COMMAND` runs COMMAND instead of the image's default process. One flag removes the container when it exits.",
-            "`docker run --rm {IMAGE} manor foyer`",
+            "`ps` stands for \"process status\". Each row is one running container.",
+            "NAMES is the last column, all the way on the right. Make the terminal wider if the line is cut off.",
         ],
-        "answers": [CODES["foyer"]],
-        "learned": "An image is the blueprint, `docker run` creates a container from it, and `--rm` cleans up afterwards.",
+        "help": "docker ps --help",
+        "answers": ["manor"],
+        "learned": "`docker ps` shows the containers that are running. You will use it all the time!",
     },
     {
         "id": 2, "name": "The Library", "emoji": "📚",
-        "story": "Dusty books line the walls. Something is writing in a diary you can't see...",
-        "mission": "Start `manor library` as a container in the background, named `library`. "
-                   "The ghost writes its code in its diary, which is the container's output.",
+        "story": "Dusty books everywhere. \"Let's make a friend for me,\" says Boo-ker. "
+                 "\"Start a new ghost!\"",
+        "mission": "Start a new container called `ghost`. Copy this into the terminal:<br>"
+                   "`docker run -d --name ghost {IMAGE} manor library`<br>"
+                   "Then type `docker ps` again. Find the ghost. What does its STATUS start with?",
         "hints": [
-            "`-d` detaches the container, `--name` names it. Output of a background container can be read with a `logs` command.",
-            "`docker run -d --name library {IMAGE} manor library`, then `docker logs library`",
+            "`docker run` = start a new container from an image. `-d` = keep it running in the background. "
+            "`--name ghost` = call it ghost.",
+            "Find the row where NAMES says ghost, then look in the STATUS column. Only type the first word.",
         ],
-        "answers": [CODES["library"]],
-        "learned": "Detached containers keep running without your terminal. Their stdout is kept as logs, and names beat random IDs.",
+        "help": "docker run --help",
+        "answers": ["up"],
+        "prefix": True,
+        "learned": "`docker run` makes a new container from an image. \"Up\" means it is running.",
     },
     {
         "id": 3, "name": "The Crypt", "emoji": "⚰️",
-        "story": "The library ghost has a long memory. Maybe it remembers you, if you wake it up again...",
-        "mission": "Restart the `library` container and read its logs again. A new code appears, "
-                   "proof that something survived the restart.",
+        "story": "The ghost is getting sleepy. \"Shhh... let it rest,\" whispers Boo-ker.",
+        "mission": "Stop the ghost:<br>`docker stop ghost`<br>"
+                   "Type `docker ps`. The ghost is gone from the list! But it still exists. "
+                   "Type `docker ps -a` to see ALL containers, also the stopped ones. "
+                   "What does the ghost's STATUS start with now?",
         "hints": [
-            "One command stops and starts a container in one go. `docker ps` shows what is running, `docker ps -a` shows everything.",
-            "`docker restart library`, then `docker logs library`",
+            "`-a` means \"all\". `docker ps` only shows running containers, `docker ps -a` shows every container.",
+            "Find the ghost's row in `docker ps -a` and look at STATUS. Only type the first word. "
+            "Is it the same word as in the last room?",
         ],
-        "answers": [CODES["crypt"]],
-        "learned": "Stop/start/restart keep the container's writable layer, so files survive. `docker rm` would wipe them. "
-                   "Try it later!",
+        "help": "docker ps --help",
+        "answers": ["exited"],
+        "prefix": True,
+        "learned": "`docker stop` stops a container, but does not delete it. "
+                   "`docker ps -a` shows stopped containers too.",
     },
     {
         "id": 4, "name": "The Cellar", "emoji": "🕯️",
-        "story": "A trapdoor leads down into the library container's own cellar. Ghosts hide things down there.",
-        "mission": "Open a shell inside the running `library` container and find the hidden file in `/cellar`. "
-                   "Read it and type the code.",
+        "story": "\"Wake up, sleepy ghost!\" Boo-ker giggles. \"It writes in its diary every time it wakes up.\"",
+        "mission": "Start the ghost again:<br>`docker start ghost`<br>"
+                   "Now read what it wrote (its logs):<br>`docker logs ghost`<br>"
+                   "Type one of the codes you see.",
         "hints": [
-            "`docker exec` runs a command inside a running container. `-it` makes it interactive and `sh` is your shell. "
-            "Hidden files start with a dot.",
-            "`docker exec -it library sh`, then `ls -a /cellar` and `cat /cellar/.whisper`. Type `exit` to leave.",
+            "`docker start` wakes up a stopped container. It is the same container as before, not a new one. "
+            "`docker logs` shows everything a container wrote.",
+            "Read every line of the logs carefully. A code is a word, a dash and four numbers.",
         ],
-        "answers": [CODES["cellar"]],
-        "learned": "Every container has its own filesystem and process space. Inside, run `ps` and notice how few processes there are.",
+        "help": "docker logs --help",
+        "answers": [CODES["crypt"], CODES["library"]],
+        "learned": "`docker start` wakes up an old container. Did you see \"boot #2\"? "
+                   "The ghost remembered you, because it is the same container.",
     },
     {
         "id": 5, "name": "The Attic", "emoji": "🌙",
-        "story": "Up the creaky stairs, the attic ghost only haunts containers that know its name. "
-                 "It also needs a window to the outside world.",
-        "mission": "Start a second manor in the background on host port 8001, with the environment variable "
-                   "`GHOST_NAME` set to any name. Then open `/attic` on that port (Ports tab in Codespaces) "
-                   "and compare it with `/attic` on port 8000.",
+        "story": "\"Time for the ghost to go home,\" says Boo-ker. \"Let's say goodbye.\"",
+        "mission": "Delete the ghost for good. But which command deletes a container? "
+                   "Find it yourself with `docker --help`.<br>"
+                   "Careful: you can't delete a running container. Stop it first with `docker stop ghost`.<br>"
+                   "When the ghost is gone from `docker ps -a`, type the command you used to delete it.",
         "hints": [
-            "`-p HOST:CONTAINER` maps a port (the app listens on 8000 inside), and `-e NAME=value` sets an environment variable. "
-            "Container names must be unique!",
-            "`docker run -d -p 8001:8000 -e GHOST_NAME=Casper --name attic {IMAGE}`",
+            "In `docker --help`, look for a command whose description says \"Remove one or more containers\".",
+            "First `docker stop ghost`. Then the delete command with the name at the end: `docker ___ ghost`.",
         ],
-        "answers": [CODES["attic"]],
-        "learned": "One image can run as many containers as you like, each configured differently through env vars and ports. "
-                   "Like instances of a class.",
+        "help": "docker --help",
+        "answers": ["docker rm", "docker rm ghost", "docker rm -f ghost", "docker rm --force ghost",
+                    "docker container rm", "docker container rm ghost"],
+        "learned": "`docker rm` deletes a container for good. Stop it first with `docker stop`, "
+                   "or force it with `docker rm -f`.",
     },
     {
         "id": 6, "name": "The Dungeon", "emoji": "⛓️",
-        "story": "Deep below, the dungeon door has no lock. You have to build one yourself.",
-        "mission": "In `exercises/dungeon/` there is an unfinished Dockerfile. Complete the TODOs, build an image "
-                   "called `dungeon`, run it and read the code. It only appears if the program runs from `/dungeon`.",
+        "story": "\"Here's a trick,\" says Boo-ker. \"A ghost that cleans up after itself!\"",
+        "mission": "Run this:<br>`docker run --rm {IMAGE} manor foyer`<br>"
+                   "It shows a code and then stops. Check `docker ps -a`: the container is not there! "
+                   "`--rm` deleted it automatically. Type the code.",
         "hints": [
-            "You need three instructions: WORKDIR, COPY and CMD. Each line of a Dockerfile becomes an image layer.",
-            "`cd exercises/dungeon`, edit the Dockerfile, then `docker build -t dungeon .` and `docker run --rm dungeon`",
+            "`--rm` = remove the container as soon as it stops. Handy for quick jobs.",
+            "Boo-ker appears in the output and tells you the code. A code is a word, a dash and four numbers.",
         ],
-        "answers": [CODES["dungeon"]],
-        "learned": "A Dockerfile is the recipe, `docker build` bakes it into an image, and then anyone can run it anywhere.",
+        "help": "docker run --help",
+        "answers": [CODES["foyer"]],
+        "learned": "With `--rm` you don't have to clean up yourself. Docker deletes the container when it stops.",
     },
     {
         "id": 7, "name": "The Exit", "emoji": "🌅",
-        "story": "Dawn breaks and the exit is in sight. But a good guest never leaves a mess behind.",
-        "mission": "Remove the `library` and `attic` containers and check with `docker ps -a`. "
-                   "Then answer: which two words remove a container? (`docker` + ...)",
+        "story": "You can see the gate! \"One last thing,\" says Boo-ker. \"Every container comes from an "
+                 "image, like a cake from a recipe.\"",
+        "mission": "See all the images on this computer:<br>`docker images`<br>"
+                   "Find the manor image. What does it say in the TAG column?",
         "hints": [
-            "Running containers must be stopped first, or removed with a force flag.",
-            "`docker rm -f library attic`. The answer is `docker rm`.",
+            "An image is the blueprint, a container is the running copy. One image can make many containers.",
+            "TAG is the second column. It tells you which version of the image you have.",
         ],
-        "answers": ["docker rm", "docker container rm"],
-        "learned": "You made it out alive, and you now know images, containers, lifecycle, exec, ports, env vars and Dockerfiles.",
+        "help": "docker images --help",
+        "answers": ["latest"],
+        "learned": "You made it out alive! You now know `docker ps`, `ps -a`, `run`, `stop`, `start`, "
+                   "`logs`, `rm`, `--rm` and `images`.",
     },
 ]
 
@@ -117,16 +138,24 @@ def public_levels():
     """Levels as sent to the browser: no answers, {IMAGE} filled in."""
     out = []
     for lvl in LEVELS:
-        item = {k: v for k, v in lvl.items() if k != "answers"}
+        item = {k: v for k, v in lvl.items() if k not in ("answers", "prefix")}
+        item["mission"] = lvl["mission"].replace("{IMAGE}", IMAGE)
         item["hints"] = [h.replace("{IMAGE}", IMAGE) for h in lvl["hints"]]
         out.append(item)
     return out
 
 
 def _norm(text: str) -> str:
-    return re.sub(r"\s+", " ", text.strip().lower().strip("`"))
+    return re.sub(r"\s+", " ", text.strip().lower().strip("`\"'"))
 
 
 def check_answer(level_id: int, answer: str) -> bool:
     lvl = next((l for l in LEVELS if l["id"] == level_id), None)
-    return bool(lvl) and _norm(answer) in {_norm(a) for a in lvl["answers"]}
+    if not lvl:
+        return False
+    given = _norm(answer)
+    accepted = [_norm(a) for a in lvl["answers"]]
+    if lvl.get("prefix"):
+        # e.g. "Up 5 seconds" or "Exited (0) 3 seconds ago" are fine too
+        return any(given.split(" ")[0] == a for a in accepted)
+    return given in accepted
