@@ -1,0 +1,13 @@
+{
+  "name": "Haunted Docker Workshop",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+  "forwardPorts": [8000, 8001],
+  "portsAttributes": {
+    "8000": { "label": "Haunted Manor" },
+    "8001": { "label": "Attic" }
+  },
+  "postCreateCommand": "docker pull ghcr.io/$(echo ${GITHUB_REPOSITORY%%/*} | tr A-Z a-z)/haunted-manor:latest || true"
+}

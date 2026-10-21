@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Haunted Container Manor</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div id="intro" class="overlay">
+    <div class="intro-box rgb-border">
+      <div class="ghost bob">👻</div>
+      <h1 class="rgb-text">Haunted Container Manor</h1>
+      <p>Seven rooms. Seven Docker challenges. One very small ghost named Boo-ker.</p>
+      <p class="warn">🔊 This game has sound and sudden jumpscares. You can turn both off at any time.</p>
+      <button id="enter" class="btn big">Enter if you dare...</button>
+    </div>
+  </div>
+
+  <header>
+    <h1 class="rgb-text flicker">🏚️ Haunted Container Manor</h1>
+    <div class="toggles">
+      <button id="snd" class="btn small"></button>
+      <button id="scr" class="btn small"></button>
+      <button id="rst" class="btn small" title="Reset progress">↺ Reset</button>
+    </div>
+  </header>
+
+  <div id="progress"><div id="bar"></div><span id="ptext"></span></div>
+
+  <main>
+    <nav id="map"></nav>
+    <section id="room" class="card rgb-border"></section>
+  </main>
+
+  <div id="scare" class="hidden"></div>
+
+  <div id="victory" class="overlay hidden">
+    <div class="intro-box rgb-border">
+      <div class="ghost bob">🐳</div>
+      <h1 class="rgb-text">YOU ESCAPED!</h1>
+      <p>Boo-ker is proud of you. Next stop: Kubernetes, where there are a <em>lot</em> more ghosts...</p>
+      <button id="close-victory" class="btn">Back to the manor</button>
+    </div>
+  </div>
+
+  <script src="/static/game.js"></script>
+</body>
+</html>
