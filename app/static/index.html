@@ -4,44 +4,62 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Haunted Container Manor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-  <div id="intro" class="overlay">
-    <div class="intro-box rgb-border">
-      <div class="ghost bob">👻</div>
-      <h1 class="rgb-text">Haunted Container Manor</h1>
-      <p>Seven rooms. Seven Docker challenges. One very small ghost named Boo-ker.</p>
-      <p class="warn">🔊 This game has sound and sudden jumpscares. You can turn both off at any time.</p>
-      <button id="enter" class="btn big">Enter if you dare...</button>
-    </div>
-  </div>
-
   <header>
-    <h1 class="rgb-text flicker">🏚️ Haunted Container Manor</h1>
+    <h1>HAUNTED MANOR</h1>
+    <div id="hud-progress"></div>
     <div class="toggles">
       <button id="snd" class="btn small"></button>
       <button id="scr" class="btn small"></button>
-      <button id="rst" class="btn small" title="Reset progress">↺ Reset</button>
+      <button id="rst" class="btn small" title="Reset progress">RESET</button>
     </div>
   </header>
 
-  <div id="progress"><div id="bar"></div><span id="ptext"></span></div>
+  <div id="stage">
+    <canvas id="game"></canvas>
+    <div id="toast" class="hidden"></div>
 
-  <main>
-    <nav id="map"></nav>
-    <section id="room" class="card rgb-border"></section>
-  </main>
-
-  <div id="scare" class="hidden"></div>
-
-  <div id="victory" class="overlay hidden">
-    <div class="intro-box rgb-border">
-      <div class="ghost bob">🐳</div>
-      <h1 class="rgb-text">YOU ESCAPED!</h1>
-      <p>Boo-ker is proud of you. Next stop: Kubernetes, where there are a <em>lot</em> more ghosts...</p>
-      <button id="close-victory" class="btn">Back to the manor</button>
+    <div id="dialog" class="hidden">
+      <div class="dlg-head">
+        <span id="dlg-title"></span>
+        <button id="dlg-close" class="btn small" title="Close (Esc)">X</button>
+      </div>
+      <div id="dlg-body"></div>
     </div>
+
+    <div id="intro" class="overlay">
+      <div class="panel">
+        <canvas id="intro-ghost" width="16" height="16"></canvas>
+        <h2>HAUNTED CONTAINER MANOR</h2>
+        <p>Seven rooms. Seven Docker challenges. One very small ghost named Boo-ker.</p>
+        <p><b>Arrow keys / WASD</b> to walk &middot; <b>E / Space</b> to interact &middot; <b>Esc</b> to close</p>
+        <p class="warn">This game has sound and sudden jumpscares. You can turn both off at the top.</p>
+        <button id="enter" class="btn">ENTER IF YOU DARE</button>
+      </div>
+    </div>
+
+    <div id="victory" class="overlay hidden">
+      <div class="panel">
+        <h2>YOU ESCAPED!</h2>
+        <p>The sun rises over the manor. Boo-ker waves goodbye.</p>
+        <p>Next stop: Kubernetes, where there are a <em>lot</em> more ghosts...</p>
+        <button id="close-victory" class="btn">LOOK AROUND</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="objective"></div>
+  <div class="controls">Arrow keys / WASD: walk &middot; E / Space: interact &middot; Esc: close</div>
+
+  <div id="scare" class="hidden">
+    <canvas id="scare-canvas" width="16" height="16"></canvas>
+    <img id="scare-photo" class="hidden" src="/static/scare-face.png" alt="">
+
+    <div class="boo">BOO!</div>
   </div>
 
   <script src="/static/game.js"></script>
