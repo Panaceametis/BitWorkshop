@@ -259,8 +259,9 @@ HELL_LEVELS = [
         ],
         "help": "kubectl --help",
         "answers": ["kubectl get pods", "kubectl get pod", "kubectl get po"],
-        "learned": "You escaped Kubernetes Hell! You started a cluster, created a Deployment from YAML, "
-                   "watched it heal itself, read logs, scaled up and cleaned up. "
+        "learned": "You started a cluster, created a Deployment from YAML, watched it heal itself, "
+                   "read logs, scaled up and cleaned up. Only one thing stands between you and freedom: "
+                   "the guardian of the gate. Prepare yourself! "
                    "(Stop the cluster with `minikube stop` when you're done.)",
     },
 ]
