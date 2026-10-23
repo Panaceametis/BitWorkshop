@@ -31,7 +31,20 @@ const STATIONS = "abcdefg";
 const DOORS = "2456";
 const WALK = new Set([".", ",", "-", "O", "W", "r"]);
 
-const WHERE = {
+// Two worlds share this engine: the Haunted Manor (Docker) and Kubernetes Hell (/hell).
+// Hell has its own colours, texts and trials, and no jumpscares or pranks.
+const WORLD = window.WORLD || "manor";
+const HELL = WORLD === "hell";
+
+const WHERE = HELL ? {
+  1: "Talk to Boo-ker at the gates of the fortress.",
+  2: "Find the burning scroll in the archive (west wing).",
+  3: "Visit the bone pit in the ash fields.",
+  4: "Open the hatch to the furnace (east wing).",
+  5: "Climb up the tower (north of the gates).",
+  6: "Go down to the skull altar (through the furnace room).",
+  7: "Go back to the gate in the ash fields.",
+} : {
   1: "Talk to Boo-ker in the foyer, inside the manor.",
   2: "Find the glowing bookshelf in the library (west wing).",
   3: "Visit the crypt in the graveyard.",
@@ -40,7 +53,15 @@ const WHERE = {
   6: "Go down into the dungeon (through the cellar).",
   7: "Go back to the graveyard gate.",
 };
-const UNLOCKED = {
+const UNLOCKED = HELL ? {
+  1: "The archive door bursts into flames... and opens.",
+  2: "Something rattles in the bone pit out in the ash fields...",
+  3: "The furnace hatch glows red hot. It's open.",
+  4: "The tower stairs crackle. The way up is open...",
+  5: "A burning stairway leads down to the skull altar...",
+  6: "A cool breeze blows from the gate in the ash fields...",
+  7: "The gate of hell opens. Walk through it to escape!",
+} : {
   1: "*click* The door to the library swings open...",
   2: "You hear scratching from the crypt in the graveyard...",
   3: "*click* The door to the cellar swings open...",
@@ -50,15 +71,45 @@ const UNLOCKED = {
   7: "The gate creaks open. Walk through it to escape!",
 };
 
-// What the skeletons and spiders moan when you walk past (shown, spoken)
-const PHRASES = [
+// What the skeletons and spiders moan when you walk past (shown, spoken). Silent in hell.
+const PHRASES = HELL ? [] : [
   ["Teeeam... Fiiiirrrst...", "Teeeam... Fiiirst..."],
   ["Nooo prototyyype... nooo meeeeting...", "Nooo prototype... Nooo meeeting..."],
   ["Puuushing the staaatus quooooo...", "Puuushing... the staaatus quooo..."],
   // Spelled for the voice: "lead" would otherwise be read as "led"
   ["Weeehee... llllllead... We leaaar...nnnnn...", "Weee... heee... We leeeed... We lurrrrn..."],
 ];
-const DAISY_LINES = ["Hiii!", "I'm Daisy!", "Hee hee hee!", "Wheee!", "Uh-oh!", "Boo!", "Daisy!", "Ooooh!"];
+const DAISY_LINES = HELL
+  ? ["Hiii!", "It's so hot here!", "Ouchie, hot!", "Wheee!", "Uh-oh!", "Daisy!"]
+  : ["Hiii!", "I'm Daisy!", "Hee hee hee!", "Wheee!", "Uh-oh!", "Boo!", "Daisy!", "Ooooh!"];
+
+/* Hell is the same map with a palette swap: every manor colour on the left is painted
+   as the hell colour on the right (grass → ash, paths → lava, walls → obsidian...). */
+const SWAP = HELL ? {
+  // grass → ash
+  "#1e3523": "#2b1512", "#2c4f31": "#3d1d16", "#152a19": "#1a0b09",
+  // dirt path → lava
+  "#4b3b2b": "#8a2c08", "#5e4a35": "#ff8a2a", "#3a2c20": "#c0400c",
+  // wooden floor → basalt
+  "#4a2e20": "#2a2228", "#36201a": "#1a1418", "#5a3a28": "#3a2e34",
+  // walls → obsidian with glowing edges
+  "#2a2140": "#1a0e10", "#1b1530": "#0d0608", "#352a52": "#3a1414", "#1d1630": "#120709", "#3d3058": "#7a2412",
+  // trees → dead, charred trees
+  "#3a2616": "#1a1210", "#10261a": "#120a0a", "#1c4529": "#241414", "#2a6338": "#3a1c1c",
+  // gravestones → reddish stone with embers
+  "#6f7787": "#6a4a44", "#545a68": "#4a3230", "#4a505c": "#3a2624", "#3d6a3a": "#ff5a14", "#2a2016": "#1a0a08",
+  // fence → spikes with glowing tips
+  "#1a1424": "#0d0608", "#2b2438": "#3a1a14", "#4a3f5c": "#ff6a1a",
+  // shelves, doors, carpet, furniture
+  "#2e1a0e": "#1a0a08", "#3e2614": "#2a1410", "#1e1008": "#0d0505", "#e090ff": "#ff6a1a",
+  "#5a3218": "#3a1a10", "#6e3e1e": "#4a2214", "#6a2a2a": "#8a1a0a",
+  "#6a1f2e": "#a8300a", "#a8834a": "#ffb02a",
+  "#6e4424": "#3a2420", "#8a5a30": "#4a2e28", "#2a170c": "#1a0c08", "#3a220e": "#120806",
+  "#3a3248": "#2a1a1a", "#6a4020": "#4a2416",
+  // the crypt → a bone pit with a burning eye
+  "#5d6472": "#4a3434", "#454b57": "#2a1a1a", "#7a8292": "#6a4444", "#ff9ad5": "#ff4a1a",
+} : {};
+const GLOW_RGB = HELL ? "255,90,30" : "255,170,60";
 const SCARE_PHOTOS = ["scare-face.png", "scare-1.png", "scare-2.png", "scare-3.png",
   "scare-4.png", "scare-5.png", "scare-6.png", "scare-7.png"];
 
@@ -148,6 +199,51 @@ const SPIDER = [
 ];
 const SPIDER_PAL = { k: "#000000", b: "#3a2450", e: "#ff3355", l: "#1a1022" };
 
+/* ---------- Kubernetes Hell creatures ---------- */
+// An imp: horns, bat wings, a tail and a pitchfork (walks where the skeletons walk in the manor)
+const IMP = [
+  "................",
+  "..h........h.f.f",
+  "..kh......hk.fff",
+  "...krrrrrrk...f.",
+  "..krrrrrrrrk..f.",
+  "..kryyrryyrk..f.",
+  "..krrrrrrrrk..f.",
+  "..krrkkkkrrk..f.",
+  "ww.krrrrrrk.rrf.",
+  "wwwkRrrrrRkrr.f.",
+  ".wwkRrrrrRk...f.",
+  "...krrrrrrk.R.f.",
+  "...kRRkkRRk...f.",
+  "...kRk..kRk...f.",
+  "..kkRk..kRkk..f.",
+  "................",
+];
+const IMP_PAL = { k: "#1a0505", r: "#c8261a", R: "#7a1010", y: "#ffd23f", h: "#f0e0c0", w: "#5a0a0a", f: "#b0b0b8" };
+
+// A fire bat, two frames: wings up and wings down (flies where the spiders hang in the manor)
+const BAT = [
+  [
+    "................", "................",
+    "w..............w", "ww............ww",
+    "www..kbbbbk..www", ".wwwkbebbebkwww.",
+    "..wwkbbbbbbkww..", "....kbbbbbbk....",
+    ".....kbbbbk.....", "......k..k......",
+    "................", "................", "................", "................", "................", "................",
+  ],
+  [
+    "................", "................", "................", "................",
+    ".....kbbbbk.....", "....kbebbebk....",
+    "..wwkbbbbbbkww..", ".wwwwkbbbbkwwww.",
+    "www...k..k...www", "w..............w",
+    "................", "................", "................", "................", "................", "................",
+  ],
+];
+const BAT_PAL = { k: "#0d0202", b: "#3a0a0a", e: "#ff3a1a", w: "#6a1010" };
+
+// Burning skeletons: the damned, standing in flames (decoration, you can walk past them)
+const SOULS = [{ x: 5, y: 11 }, { x: 15, y: 9 }, { x: 12, y: 13 }, { x: 3, y: 4 }];
+
 // The crying nun: she sobs silently in the corner of the library (16 x 20, taller than a tile).
 // Rows 0-11 are her head (they bob while she sobs), rows 12-19 her body.
 const NUN = [
@@ -189,10 +285,10 @@ const NPCS = [
 
 /* ---------- State ---------- */
 let levels = [];
-const solved = new Set(JSON.parse(localStorage.getItem("manor.solved") || "[]"));
+const solved = new Set(JSON.parse(localStorage.getItem(`${WORLD}.solved`) || "[]"));
 // Sound and scares can't be switched off. The buttons are a prank (see troll()).
 const soundOn = true;
-const scaresOn = true;
+const scaresOn = !HELL; // no jumpscares in hell: the jokes are over
 let started = false;
 let escaped = false;
 let dialogLevel = null;
@@ -207,9 +303,10 @@ MAP.forEach((row, y) => [...row].forEach((ch, x) => {
   const i = STATIONS.indexOf(ch);
   if (i >= 0) stationPos[i + 1] = [x, y];
   if (ch === "K" || ch === "J") lights.push({ ch, x, y });
+  if (HELL && (ch === "-" || ch === "r")) lights.push({ ch, x, y }); // lava glows
 }));
 
-const saveSolved = () => localStorage.setItem("manor.solved", JSON.stringify([...solved]));
+const saveSolved = () => localStorage.setItem(`${WORLD}.solved`, JSON.stringify([...solved]));
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 const nextLevel = () => [1, 2, 3, 4, 5, 6, 7].find((id) => !solved.has(id)) || null;
 const tileAt = (x, y) => (MAP[y] && MAP[y][x]) || "#";
@@ -409,7 +506,8 @@ const sfx = {
 
 /* Background music: a spooky-cute music box in A minor with an echo,
    plus a soft ghost "oooOOOooo" every now and then. 0 = rest. */
-const BEAT_MS = 420;
+const BEAT_MS = HELL ? 520 : 420;
+const PITCH = HELL ? 0.5 : 1; // hell plays the same tune an octave lower, and slower
 const MELODY = [
   440, 523, 659, 523, 494, 0, 392, 0, 349, 440, 523, 440, 415, 0, 494, 0,
   440, 523, 659, 880, 784, 0, 659, 0, 698, 659, 523, 494, 440, 0, 0, 0,
@@ -449,9 +547,46 @@ function ghostWail(bus) {
   lfo.stop(t + 3);
 }
 
+/* Kubernetes Hell gets a boss-battle track instead: fast and driving, in E phrygian.
+   16th-note steps; a pounding bass riff, kick + snare + hi-hat, and a menacing lead. 0 = rest. */
+const BOSS_STEP_MS = 125;
+const BOSS_BASS = [82.4, 82.4, 164.8, 82.4, 82.4, 164.8, 87.3, 82.4, 82.4, 82.4, 164.8, 82.4, 98, 87.3, 82.4, 73.4];
+const BOSS_LEAD = [
+  329.6, 0, 349.2, 0, 392, 0, 349.2, 329.6, 0, 0, 493.9, 0, 523.3, 493.9, 440, 392,
+  329.6, 0, 349.2, 0, 392, 0, 440, 0, 523.3, 0, 587.3, 523.3, 493.9, 440, 392, 349.2,
+  659.3, 0, 659.3, 698.5, 659.3, 0, 587.3, 0, 523.3, 0, 587.3, 0, 493.9, 0, 0, 0,
+  659.3, 0, 659.3, 698.5, 783.9, 0, 698.5, 0, 659.3, 587.3, 523.3, 493.9, 440, 0, 0, 0,
+];
+
+function bossMusic() {
+  const a = audio();
+  const bus = a.createGain();
+  bus.gain.value = 0.9;
+  bus.connect(a.destination);
+  let step = 0;
+  const beat = setInterval(() => {
+    const i = step % 16;
+    note(bus, "square", BOSS_BASS[i], 0.12, 0.05);                       // bass riff
+    if (i % 4 === 0) tone("sine", 150, 40, 0.18, 0.35);                  // kick
+    if (i === 4 || i === 12) noise(0.12, 0.18);                           // snare
+    if (i % 2 === 1) noise(0.03, 0.035);                                  // hi-hat
+    const lead = BOSS_LEAD[step % BOSS_LEAD.length];
+    if (lead) note(bus, "sawtooth", lead, 0.2, 0.022);                    // lead melody
+    step++;
+  }, BOSS_STEP_MS);
+  return {
+    stop() {
+      clearInterval(beat);
+      bus.disconnect();
+    },
+  };
+}
+
 function updateMusic() {
   const want = started && soundOn;
-  if (want && !music) {
+  if (want && !music && HELL) {
+    music = bossMusic();
+  } else if (want && !music) {
     const a = audio();
     const bus = a.createGain(), echo = a.createDelay(), feedback = a.createGain(), wet = a.createGain();
     echo.delayTime.value = 0.32;
@@ -465,8 +600,8 @@ function updateMusic() {
     let step = 0, wail;
     const beat = setInterval(() => {
       const i = step % MELODY.length;
-      if (MELODY[i]) note(bus, "triangle", MELODY[i], 1.1, 0.045);
-      if (BASS[i]) note(bus, "sine", BASS[i], 3, 0.08);
+      if (MELODY[i]) note(bus, "triangle", MELODY[i] * PITCH, 1.1, 0.045);
+      if (BASS[i]) note(bus, "sine", BASS[i] * PITCH, 3, 0.08);
       step++;
     }, BEAT_MS);
     const scheduleWail = () => {
@@ -550,7 +685,7 @@ dark.width = canvas.width;
 dark.height = canvas.height;
 
 function rect(c, x, y, w, h, color) {
-  c.fillStyle = color;
+  c.fillStyle = SWAP[color] || color;
   c.fillRect(x, y, w, h);
 }
 
@@ -857,7 +992,13 @@ function hole(c, x, y, r) {
 
 function drawNpc(n, now) {
   const x = Math.round(n.x * T), y = Math.round(n.y * T);
-  if (n.kind === "skeleton") {
+  if (HELL && n.kind === "skeleton") {
+    const hop = Math.floor(now / 160) % 2; // imps bounce as they walk
+    rect(ctx, x + 4, y + 14, 8, 2, "rgba(0,0,0,0.35)");
+    sprite(ctx, IMP, IMP_PAL, x, y - 2 - hop, n.dir < 0);
+  } else if (HELL) {
+    sprite(ctx, BAT[Math.floor(now / 140) % 2], BAT_PAL, x, y + Math.round(Math.sin(now / 200) * 2));
+  } else if (n.kind === "skeleton") {
     const legs = SKELETON_LEGS[Math.floor(now / 220) % 2];
     rect(ctx, x + 4, y + 14, 8, 2, "rgba(0,0,0,0.35)");
     sprite(ctx, [...SKELETON_TOP, ...legs], SKELETON_PAL, x, y - 2, n.dir < 0);
@@ -893,17 +1034,42 @@ function drawTears(now) {
 // A warm golden glow, added on top of the picture
 function glow(x, y, r, alpha) {
   const g = ctx.createRadialGradient(x, y, 0, x, y, r);
-  g.addColorStop(0, `rgba(255,170,60,${alpha})`);
-  g.addColorStop(1, "rgba(255,170,60,0)");
+  g.addColorStop(0, `rgba(${GLOW_RGB},${alpha})`);
+  g.addColorStop(1, `rgba(${GLOW_RGB},0)`);
   ctx.fillStyle = g;
   ctx.beginPath();
   ctx.arc(x, y, r, 0, Math.PI * 2);
   ctx.fill();
 }
 
+function drawSouls(now) {
+  // A skeleton in the middle of a fire. The flames flicker in front of it, tall and short.
+  for (const [k, s] of SOULS.entries()) {
+    const x = s.x * T, y = s.y * T;
+    sprite(ctx, [...SKELETON_TOP, ...SKELETON_LEGS[0]], SKELETON_PAL, x, y - 3 + (Math.floor(now / 200 + k) % 2));
+    for (let i = 0; i < 8; i++) {
+      const h = 4 + ((Math.floor(now / 80) + i * 3 + k * 5) % 7);
+      const fx = x + i * 2;
+      rect(ctx, fx, y + 16 - h, 2, h, "#ff6a1a");
+      rect(ctx, fx, y + 16 - h, 2, 1, "#c8261a");
+      if (h > 6) rect(ctx, fx, y + 18 - h, 1, h - 4, "#ffd23f");
+    }
+  }
+}
+
 function drawEyes(n) {
   // Glowing eyes, drawn on top of the darkness
   const x = Math.round(n.x * T), y = Math.round(n.y * T);
+  if (HELL && n.kind === "skeleton") { // imp: yellow eyes
+    for (const ex of [4, 5, 8, 9]) rect(ctx, x + ex, y + 3, 1, 1, "#ffd23f");
+    return;
+  }
+  if (HELL) { // bat: red eyes
+    const by = y + 5 + Math.round(Math.sin(performance.now() / 200) * 2);
+    rect(ctx, x + 6, by, 1, 1, "#ff3a1a");
+    rect(ctx, x + 9, by, 1, 1, "#ff3a1a");
+    return;
+  }
   const color = n.kind === "skeleton" ? "#ff2a2a" : "#ff3355";
   const ey = n.kind === "skeleton" ? y + 1 : y + 6;
   rect(ctx, x + 6, ey, 1, 1, color);
@@ -927,9 +1093,14 @@ function draw(now) {
   const bob = Math.round(Math.sin(now / 400) * 1.5);
   rect(ctx, gx * T + 4, gy * T + 14, 8, 2, "rgba(0,0,0,0.35)");
   sprite(ctx, GHOST, GHOST_PAL, gx * T, gy * T - 3 + bob);
+  if (HELL) { // little devil horns
+    rect(ctx, gx * T + 4, gy * T - 4 + bob, 2, 3, "#e8341a");
+    rect(ctx, gx * T + 10, gy * T - 4 + bob, 2, 3, "#e8341a");
+  }
 
   NPCS.forEach((n) => drawNpc(n, now));
-  drawNun(now);
+  if (!HELL) drawNun(now);
+  if (HELL) drawSouls(now);
 
   // Bouncing arrow above the next challenge
   const target = nextLevel() || (escaped ? null : 7);
@@ -951,14 +1122,15 @@ function draw(now) {
   const d = dark.getContext("2d");
   d.globalCompositeOperation = "source-over";
   d.clearRect(0, 0, dark.width, dark.height);
-  d.fillStyle = escaped ? "rgba(40,20,50,0.25)" : "rgba(4,2,10,0.8)";
+  d.fillStyle = escaped ? "rgba(40,20,50,0.25)" : HELL ? "rgba(14,2,2,0.78)" : "rgba(4,2,10,0.8)";
   d.fillRect(0, 0, dark.width, dark.height);
   d.globalCompositeOperation = "destination-out";
   hole(d, px + 8, py + 6, 76 + Math.sin(now / 90) * 2 + Math.sin(now / 37));
   hole(d, gx * T + 8, gy * T + 6, 20);
-  hole(d, NUN_POS.x * T + 8, nunTop() + 8, 16); // a faint glow, so you can just see her
+  if (!HELL) hole(d, NUN_POS.x * T + 8, nunTop() + 8, 16); // a faint glow, so you can just see her
   for (const l of lights) hole(d, l.x * T + 8, l.y * T + 4, 18 + Math.sin(now / 70 + l.x) * 1.5);
   if (target) hole(d, stationPos[target][0] * T + 8, stationPos[target][1] * T + 6, 22);
+  if (HELL) for (const s of SOULS) hole(d, s.x * T + 8, s.y * T + 8, 24 + Math.sin(now / 60 + s.x) * 2);
   ctx.drawImage(dark, 0, 0);
 
   // Golden glow: strongest around candles and pumpkins, softer around Daisy's lantern
@@ -967,11 +1139,12 @@ function draw(now) {
     glow(px + 8, py + 6, 80 + Math.sin(now / 90) * 2, 0.13);
     for (const l of lights) glow(l.x * T + 8, l.y * T + 3, 26 + Math.sin(now / 70 + l.x) * 2, 0.22);
     if (target) glow(stationPos[target][0] * T + 8, stationPos[target][1] * T + 6, 24, 0.12);
+    if (HELL) for (const s of SOULS) glow(s.x * T + 8, s.y * T + 10, 30 + Math.sin(now / 60 + s.x) * 3, 0.3);
     ctx.globalCompositeOperation = "source-over";
   }
 
   NPCS.forEach(drawEyes);
-  drawTears(now);
+  if (!HELL) drawTears(now);
 }
 
 /* ---------- Movement ---------- */
@@ -1033,7 +1206,7 @@ function updateNpcs(dt, now) {
     }
 
     // Moan a slogan when Daisy walks past
-    const close = Math.hypot(n.x - player.px, n.y - player.py) < 2.5;
+    const close = PHRASES.length > 0 && Math.hypot(n.x - player.px, n.y - player.py) < 2.5;
     if (started && !dialogLevel && close && now > n.next && now > talkNext) {
       const [shown, spoken] = pick(PHRASES);
       bubble(shown, n.x, n.y, "monster");
@@ -1067,7 +1240,7 @@ function update(dt, now) {
     tryMove(dx, dy);
   }
   updateNpcs(dt, now);
-  updateNun(now);
+  if (!HELL) updateNun(now);
 }
 
 function interact() {
@@ -1186,7 +1359,7 @@ function renderDialog(typewriter) {
   $("#dlg-body").innerHTML = `
     <p class="story" id="story"></p>
     <div class="mission">${fmt(l.mission)}</div>
-    <div class="help">Stuck? Type <code>${l.help}</code> for info, or ask the beautiful Queen Judit 👑</div>
+    <div class="help">Stuck? Type <code>${l.help}</code> for info, or ask Judit 🙋‍♀️</div>
     ${l.hints.slice(0, shown).map((h, i) => `<div class="hint">Hint ${i + 1}: ${fmt(h)}</div>`).join("")}
     ${done
       ? `<div class="learned"><b>Boo-ker says:</b> ${fmt(l.learned)}</div>`
@@ -1228,7 +1401,7 @@ async function submit(e) {
   const res = await fetch("/api/check", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ level: l.id, answer }),
+    body: JSON.stringify({ level: l.id, answer, world: WORLD }),
   }).then((r) => r.json());
 
   if (res.correct) {
@@ -1314,7 +1487,9 @@ $("#enter").addEventListener("click", () => {
   sfx.creak();
   scheduleRandomScare();
   scheduleDaisy();
-  toast(solved.size ? "Welcome back... the ghosts remember you." : "The gate slams shut behind you. Find a way into the manor...");
+  toast(HELL
+    ? (solved.size ? "Welcome back to the heat..." : "You fall through the floor... into Kubernetes Hell. Find Boo-ker at the gates.")
+    : (solved.size ? "Welcome back... the ghosts remember you." : "The gate slams shut behind you. Find a way into the manor..."));
   setTimeout(() => daisySays("Hiii! I'm Daisy!"), 1500);
 });
 
@@ -1365,4 +1540,4 @@ renderBackground();
 updateHud();
 requestAnimationFrame(loop);
 
-fetch("/api/levels").then((r) => r.json()).then((data) => (levels = data));
+fetch(`/api/levels?world=${WORLD}`).then((r) => r.json()).then((data) => (levels = data));

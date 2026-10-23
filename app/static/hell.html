@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kubernetes Hell</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="hell">
+  <header>
+    <h1>KUBERNETES HELL</h1>
+    <div id="hud-progress"></div>
+    <div class="toggles">
+      <!-- No pranks in hell: the sound/scares buttons stay hidden -->
+      <button id="snd" class="btn small hidden"></button>
+      <button id="scr" class="btn small hidden"></button>
+      <button id="rst" class="btn small" title="Reset progress">RESET</button>
+    </div>
+  </header>
+
+  <div id="stage">
+    <canvas id="game"></canvas>
+    <div id="toast" class="hidden"></div>
+
+    <div id="dialog" class="hidden">
+      <div class="dlg-head">
+        <span id="dlg-title"></span>
+        <button id="dlg-close" class="btn small" title="Close (Esc)">X</button>
+      </div>
+      <div id="dlg-body"></div>
+    </div>
+
+    <div id="intro" class="overlay">
+      <div class="panel">
+        <canvas id="intro-ghost" width="16" height="16"></canvas>
+        <h2>KUBERNETES HELL</h2>
+        <p>Seven trials. Real <b>kubectl</b> commands. Boo-ker grew horns.</p>
+        <p><b>Arrow keys / WASD</b> to walk &middot; <b>E / Space</b> to interact &middot; <b>Esc</b> to close</p>
+        <p class="warn">No more jumpscares. Down here, the only thing that bites is YAML.</p>
+        <button id="enter" class="btn">DESCEND</button>
+      </div>
+    </div>
+
+    <div id="victory" class="overlay hidden">
+      <div class="panel">
+        <h2>YOU ESCAPED KUBERNETES HELL!</h2>
+        <p>You started a cluster, summoned a deployment, watched it heal itself, scaled it up and cleaned it up.</p>
+        <p>Boo-ker takes off his horns. You're a real orchestrator now.</p>
+        <button id="close-victory" class="btn">LOOK AROUND</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="objective"></div>
+  <div class="controls">Arrow keys / WASD: walk &middot; E / Space: interact &middot; Esc: close</div>
+
+  <!-- Kept so the shared game engine finds them; never shown in hell -->
+  <div id="troll" class="hidden"><img id="troll-img" alt=""><div class="nice-try"></div></div>
+  <div id="scare" class="hidden">
+    <canvas id="scare-canvas" width="16" height="16"></canvas>
+    <img id="scare-photo" class="hidden" alt="">
+    <div class="boo"></div>
+  </div>
+
+  <script>window.WORLD = "hell";</script>
+  <script src="/static/game.js"></script>
+</body>
+</html>

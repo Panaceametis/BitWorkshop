@@ -6,6 +6,16 @@
   --box: #10122a;
 }
 
+/* Kubernetes Hell: same page, fiery colours */
+body.hell {
+  --bg: #0d0404;
+  --gold: #ff8a3c;
+  --purple: #7a1010;
+  --box: #1a0808;
+  background: radial-gradient(ellipse at bottom, #3a0a04 0%, var(--bg) 70%);
+}
+body.hell #game { box-shadow: 0 0 0 4px #3a0a04, 0 0 50px #ff3c1455; }
+
 * { box-sizing: border-box; }
 
 body {
