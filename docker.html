@@ -1,0 +1,769 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Docker workshop: Virtualization, VMs & containers</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #12111c;
+    --panel: #1b1a29;
+    --panel-2: #232236;
+    --line: #2f2d45;
+    --text: #f1eef9;
+    --muted: #a19cb8;
+    --gold: #ffc857;
+    --pink: #ff7a90;
+    --green: #7ddba3;
+    /* diagram layers */
+    --app: #33202e;    --app-line: #ff7a90;
+    --lib: #2c2140;    --lib-line: #d39bff;
+    --guest: #3a2f14;  --guest-line: #ffc857;
+    --hyper: #143532;  --hyper-line: #4fd1b5;
+    --os: #172a48;     --os-line: #6ea8ff;
+    --hw: #291f42;     --hw-line: #ad8cff;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  body { font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--text); }
+
+  /* A fixed 1280x720 stage, scaled to fit any screen */
+  #deck {
+    position: absolute; left: 50%; top: 50%;
+    width: 1280px; height: 720px;
+    transform: translate(-50%, -50%) scale(var(--scale, 1));
+    background: radial-gradient(ellipse at 15% 0%, #221f38 0%, transparent 55%), var(--bg);
+    overflow: hidden;
+  }
+
+  /* ---------- Slides ---------- */
+  .slide {
+    position: absolute; inset: 0;
+    padding: 58px 90px 76px;
+    display: flex; flex-direction: column;
+    opacity: 0; visibility: hidden; transform: translateY(12px);
+    transition: opacity .4s, transform .4s, visibility .4s;
+  }
+  .slide.active { opacity: 1; visibility: visible; transform: none; }
+
+  .kicker { font-size: 21px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; color: var(--pink); margin-bottom: 10px; }
+  h1, h2 { margin: 0; font-weight: 800; letter-spacing: -0.5px; }
+  h1 { font-size: 64px; line-height: 1.1; }
+  h2 { font-size: 42px; line-height: 1.2; margin-bottom: 26px; }
+  h1 span, h2 span { color: var(--gold); }
+
+  p, li { font-size: 26px; line-height: 1.5; }
+  p { margin: 0 0 18px; }
+  .lead { font-size: 30px; }
+  .muted { color: var(--muted); }
+  b, strong { color: var(--gold); font-weight: 600; }
+  em { color: var(--pink); font-style: normal; }
+
+  code, pre { font-family: "JetBrains Mono", monospace; }
+  code { background: var(--panel-2); color: var(--gold); padding: 2px 8px; border-radius: 6px; font-size: .88em; }
+
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 56px; flex: 1; align-items: center; }
+  .cols.wide-left { grid-template-columns: 1.1fr 1fr; }
+  .cols.three { grid-template-columns: repeat(3, 1fr); gap: 28px; }
+  /* Boxes in an .equal row are always the same width and height */
+  .cols.equal { flex: 0 0 auto; align-items: stretch; grid-auto-rows: 1fr; }
+
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 30px 32px; }
+  .card h3 { margin: 0 0 14px; font-size: 30px; }
+  .card p { font-size: 24px; margin: 0; }
+  .card.vm { border-top: 5px solid var(--app-line); }
+  .card.ct { border-top: 5px solid var(--hyper-line); }
+
+  .callout {
+    margin-top: auto; padding: 20px 28px; border-radius: 14px;
+    background: #ffc85712; border-left: 5px solid var(--gold); font-size: 25px;
+  }
+
+  /* Clean list rows: a small accent bar, a bold title and a short description */
+  .rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
+  .rows li {
+    display: grid; grid-template-columns: 6px 1fr; column-gap: 16px;
+    padding: 8px 16px; border-radius: 12px; background: var(--panel);
+    font-size: 21px; line-height: 1.3;
+  }
+  .rows li::before { content: ""; grid-row: span 2; border-radius: 3px; background: var(--accent, var(--gold)); }
+  .rows li .t { font-weight: 700; color: var(--text); }
+  .rows li .d { color: var(--muted); font-size: 18px; }
+  .rows.big { gap: 11px; }
+  .rows.big li { padding: 11px 20px; }
+  .rows.big li .t { font-size: 24px; }
+  .rows.big li .d { font-size: 20px; }
+  /* Title and description on one line, for longer lists */
+  .rows.inline li { grid-template-columns: 6px max-content 1fr; align-items: baseline; padding: 9px 16px; }
+  .rows.inline li::before { grid-row: auto; align-self: stretch; }
+  .rows.inline li .d { padding-left: 12px; }
+
+  pre {
+    margin: 0; padding: 22px 0; border-radius: 14px;
+    background: #0c0b14; border: 1px solid var(--line);
+    font-size: 21px; line-height: 1.75; color: #e9e6f5;
+  }
+  pre .ln { display: block; padding: 0 28px; transition: background .3s, opacity .3s; white-space: pre; }
+  pre.walking .ln { opacity: .45; }
+  pre.walking .ln.focus { opacity: 1; background: #ffc8571f; box-shadow: inset 4px 0 0 var(--gold); }
+  .c-key { color: var(--pink); font-weight: 600; }
+  .c-com { color: #7f7a99; }
+  .c-str { color: var(--green); }
+
+  /* Click-through steps: revealed one at a time with → / space / click */
+  .step { opacity: 0; transform: translateY(10px); transition: opacity .4s, transform .4s; }
+  .step.shown { opacity: 1; transform: none; }
+
+  /* ---------- The cloud provider story ---------- */
+  .cols.story-cols { grid-template-columns: 1.25fr 1fr; gap: 44px; }
+  .story p { font-size: 24px; margin-bottom: 16px; }
+  .rack { position: relative; height: 380px; }
+  .machine {
+    position: absolute; inset: 20px 10px;
+    border: 3px solid var(--hw-line); background: var(--hw); border-radius: 22px;
+    display: grid; place-items: center; text-align: center;
+    transition: background .6s;
+  }
+  .machine .icon { font-size: 84px; line-height: 1; transition: opacity .4s, transform .4s; }
+  .machine .label { font-size: 24px; font-weight: 600; margin-top: 14px; transition: opacity .4s; }
+  .price-tag {
+    position: absolute; top: -18px; right: -14px;
+    background: var(--gold); color: #1a1408; font-weight: 800; font-size: 26px;
+    padding: 10px 18px; border-radius: 12px; rotate: 6deg;
+    box-shadow: 0 8px 20px #00000066;
+  }
+  .vms {
+    position: absolute; inset: 44px 34px;
+    display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px;
+  }
+  .vms div {
+    background: var(--app); border: 2px solid var(--app-line); border-radius: 12px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+    font-size: 18px; font-weight: 600; text-align: center;
+    opacity: 0; transform: scale(.4); transition: opacity .4s, transform .4s;
+  }
+  .vms div .who { font-size: 30px; }
+  .vms div b { font-size: 26px; }
+  .rack.split .machine { background: transparent; border-style: dashed; }
+  .rack.split .machine .icon, .rack.split .machine .label { opacity: 0; transform: scale(.8); }
+  .rack.split .price-tag { opacity: 0; }
+  .rack.split .vms div { opacity: 1; transform: none; }
+  .rack.split .vms div:nth-child(2) { transition-delay: .1s; }
+  .rack.split .vms div:nth-child(3) { transition-delay: .2s; }
+  .rack.split .vms div:nth-child(4) { transition-delay: .3s; }
+  .rack.split .vms div:nth-child(5) { transition-delay: .4s; }
+
+  /* ---------- Big definition slides ---------- */
+  .definition { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+  .definition .term { font-size: 30px; color: var(--muted); margin-bottom: 14px; }
+  .definition h1 { font-size: 80px; color: var(--gold); margin-bottom: 36px; }
+  .definition blockquote {
+    margin: 0; padding-left: 28px; border-left: 5px solid var(--pink);
+    font-size: 34px; line-height: 1.45; max-width: 1050px;
+  }
+
+  /* ---------- Architecture diagrams ---------- */
+  .stack { display: flex; flex-direction: column-reverse; gap: 10px; width: 100%; }
+  .layer {
+    border-radius: 12px; padding: 14px; text-align: center; font-size: 22px; font-weight: 600;
+    border: 2px solid; opacity: 0; transform: translateY(20px);
+    transition: box-shadow .3s, opacity .3s;
+  }
+  .slide.active .layer { animation: rise .5s ease-out forwards; }
+  @keyframes rise { to { opacity: 1; transform: none; } }
+  .stack .layer:nth-child(2) { animation-delay: .25s; }
+  .stack .layer:nth-child(3) { animation-delay: .5s; }
+  .stack .layer:nth-child(4) { animation-delay: .75s; }
+  .layer.hw { background: var(--hw); border-color: var(--hw-line); }
+  .layer.os { background: var(--os); border-color: var(--os-line); }
+  .layer.hyper { background: var(--hyper); border-color: var(--hyper-line); }
+  .boxes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; padding: 0; border: 0; }
+  .box {
+    background: var(--app); border: 2px solid var(--app-line); border-radius: 12px;
+    padding: 10px; display: flex; flex-direction: column; gap: 8px;
+  }
+  .box .t { font-size: 20px; font-weight: 800; }
+  .box .part { border: 1px solid; border-radius: 8px; padding: 7px 4px; font-size: 17px; font-weight: 600; transition: box-shadow .3s; }
+  .box .part.app { background: #00000035; border-color: #ff7a9066; }
+  .box .part.lib { background: var(--lib); border-color: var(--lib-line); }
+  .box .part.guest { background: var(--guest); border-color: var(--guest-line); color: var(--gold); }
+  .stack.small .layer { font-size: 17px; padding: 9px; }
+  .stack.small .box .t { font-size: 16px; }
+  .stack.small .box .part { font-size: 14px; padding: 5px 2px; }
+
+  /* While walking through a diagram, the part being explained lights up */
+  /* (dimmed with a filter, because the rise-up animation already controls opacity) */
+  .focusing .layer:not(.boxes):not(.focus), .focusing .box .part:not(.focus),
+  .focusing .app-box:not(.focus) { filter: brightness(.45) saturate(.6); }
+  .focusing .focus { box-shadow: 0 0 0 3px var(--gold), 0 0 26px #ffc85766; }
+
+  .glow .part.guest { animation: pulse 1.4s ease-in-out infinite; }
+  @keyframes pulse { 50% { box-shadow: 0 0 0 4px #ffc85766; } }
+
+  /* ---------- Comparison table ---------- */
+  table { width: 100%; border-collapse: collapse; font-size: 24px; }
+  th, td { padding: 16px 20px; text-align: left; border-bottom: 1px solid var(--line); }
+  th { font-size: 22px; font-weight: 800; }
+  td:first-child { color: var(--muted); }
+  tr:last-child td { border-bottom: 0; }
+
+  /* ---------- Lifecycle: a snake from Dockerfile to Removed ---------- */
+  .lc-row { display: flex; align-items: center; }
+  .lc-row.rev { flex-direction: row-reverse; }           /* second row reads right to left */
+  .lc-group { display: flex; align-items: center; flex: 1; }
+  .lc-row.rev .lc-group { flex-direction: row-reverse; }
+  .state {
+    flex: 0 0 170px; padding: 14px 8px; border-radius: 16px; text-align: center;
+    background: var(--panel); border: 2px solid var(--line); font-size: 20px; font-weight: 800;
+  }
+  .state .em { display: block; font-size: 30px; margin-bottom: 4px; }
+  .state small { display: block; font-size: 15px; font-weight: 500; color: var(--muted); }
+  .state.file { border-color: var(--lib-line); }
+  .state.img { border-color: var(--os-line); }
+  .state.run { border-color: var(--green); }
+  .state.stop { border-color: var(--gold); }
+  .state.dead { border-color: var(--pink); }
+  .arrow { flex: 1; text-align: center; color: var(--muted); padding: 0 8px; }
+  .arrow code { display: inline-block; margin-bottom: 6px; font-size: 15px; }
+  .arrow .line { height: 3px; background: linear-gradient(90deg, var(--line), var(--gold)); position: relative; }
+  .arrow .line::after {
+    content: ""; position: absolute; right: -2px; top: -6px;
+    border-left: 12px solid var(--gold); border-top: 7.5px solid transparent; border-bottom: 7.5px solid transparent;
+  }
+  .arrow.left .line { background: linear-gradient(270deg, var(--line), var(--gold)); }
+  .arrow.left .line::after { right: auto; left: -2px; border-left: 0; border-right: 12px solid var(--gold); }
+  .lc-down { align-self: flex-end; width: 170px; text-align: center; margin: 6px 0; }
+  .lc-down code { font-size: 15px; }
+  .lc-down .v { display: block; font-size: 26px; line-height: 1; color: var(--gold); }
+  .lc-phase { font-size: 15px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+  .lifecycle { display: flex; flex-direction: column; }
+  .loop { margin: 16px 0 0; font-size: 21px; color: var(--muted); }
+
+  /* ---------- Let's play a game ---------- */
+  .play-slide { justify-content: center; align-items: center; text-align: center; }
+  .play-slide h1 { font-size: 76px; color: var(--gold); }
+  .play-slide .sub { font-size: 30px; margin-top: 22px; color: var(--muted); }
+  .big-ghost {
+    width: 176px; height: 176px; margin-bottom: 26px;
+    image-rendering: pixelated; animation: bob 2.6s ease-in-out infinite;
+  }
+
+  /* ---------- Boo-ker in the corner ---------- */
+  #booker {
+    position: absolute; left: 26px; bottom: 14px; width: 40px; height: 40px;
+    image-rendering: pixelated; opacity: .85; animation: bob 3s ease-in-out infinite;
+  }
+  @keyframes bob { 50% { transform: translateY(-6px) rotate(-4deg); } }
+
+  /* ---------- Title slide ---------- */
+  .title-slide { justify-content: center; }
+  .title-slide .sub { font-size: 30px; margin-top: 24px; color: var(--muted); }
+  .title-slide .badge {
+    display: inline-block; margin-top: 50px; padding: 10px 18px; border-radius: 999px;
+    background: var(--panel); border: 1px solid var(--line); font-size: 20px; color: var(--muted);
+  }
+
+  /* ---------- Chrome: progress, counter, hint ---------- */
+  #progress { position: absolute; left: 0; bottom: 0; height: 5px; background: var(--gold); transition: width .4s; }
+  #counter { position: absolute; right: 40px; bottom: 22px; font-size: 15px; font-weight: 600; color: var(--muted); }
+  #hint { position: absolute; left: 50%; bottom: 20px; transform: translateX(-50%); font-size: 15px; color: #6c6886; transition: opacity 1s; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+    .layer { opacity: 1 !important; transform: none !important; }
+  }
+</style>
+</head>
+<body>
+<div id="deck">
+
+  <!-- 1. Title -->
+  <section class="slide title-slide">
+    <div class="kicker">Docker workshop · Part 1</div>
+    <h1>Virtualization,<br><span>VMs & containers</span></h1>
+    <p class="sub">How one machine runs many environments, and where Docker fits in</p>
+    <div><span class="badge">🏚️ Afterwards: the Haunted Container Manor game</span></div>
+  </section>
+
+  <!-- 2. Agenda -->
+  <section class="slide">
+    <div class="kicker">Agenda</div>
+    <h2>What we'll cover</h2>
+    <ul class="rows big">
+      <li><span class="t">Why virtualization exists</span><span class="d">One machine, many customers</span></li>
+      <li><span class="t">Virtual machines vs containers</span><span class="d">How they work, and how they differ</span></li>
+      <li><span class="t">When to use which</span><span class="d">And why it matters for you</span></li>
+      <li><span class="t">Docker</span><span class="d">Images, containers and their lifecycle</span></li>
+      <li><span class="t">Hands-on</span><span class="d">The Haunted Container Manor</span></li>
+    </ul>
+  </section>
+
+  <!-- 3. The cloud provider story (interactive) -->
+  <section class="slide">
+    <div class="kicker">Imagine...</div>
+    <h2>You're a cloud provider</h2>
+    <div class="cols story-cols">
+      <div class="story">
+        <p>You own <b>one powerful machine</b>, and you want to rent it out.</p>
+        <p class="step">Your customers use it to run their backend servers.</p>
+        <p class="step">But the whole machine costs <b>$100 a month</b>. Way too much for a small static website! 💸</p>
+        <p class="step" data-action="split">So you <b>split it</b> into 5 smaller, isolated machines...</p>
+        <p class="step">...each for <b>$20 a month</b>. Customers pay less, and you still earn your $100.</p>
+      </div>
+      <div class="rack" id="rack">
+        <div class="machine">
+          <div>
+            <div class="icon">🖥️</div>
+            <div class="label">One physical machine</div>
+          </div>
+          <div class="price-tag step" data-step="2">$100 / month</div>
+        </div>
+        <div class="vms">
+          <div><span class="who">🧑‍💼</span>VM 1<b>$20</b></div>
+          <div><span class="who">👩‍💻</span>VM 2<b>$20</b></div>
+          <div><span class="who">🧑‍🔧</span>VM 3<b>$20</b></div>
+          <div><span class="who">👨‍🎨</span>VM 4<b>$20</b></div>
+          <div><span class="who">👩‍🔬</span>VM 5<b>$20</b></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. Definition: virtualization -->
+  <section class="slide">
+    <div class="definition">
+      <div class="term">This is called</div>
+      <h1>Virtualization</h1>
+      <blockquote class="step">A technique that allows running <b>multiple environments</b> on a <b>single physical server</b>.</blockquote>
+      <p class="step muted" style="margin-top: 34px; font-size: 26px;">Most modern applications rely on it, including the cloud services you use every day.</p>
+    </div>
+  </section>
+
+  <!-- 5. Two ways -->
+  <section class="slide">
+    <div class="kicker">Two technologies</div>
+    <h2>There are two ways to do this</h2>
+    <div class="cols equal">
+      <div class="card vm step">
+        <h3>🖥️ Virtual machines</h3>
+        <p>Split the machine into separate, complete computers.</p>
+      </div>
+      <div class="card ct step">
+        <h3>📦 Containers</h3>
+        <p>Split it into lightweight boxes that share one operating system.</p>
+      </div>
+    </div>
+    <div class="callout step">Both are powerful, but they differ in <b>benefits</b> and <b>use cases</b>.</div>
+  </section>
+
+  <!-- 6. How computers run apps -->
+  <section class="slide">
+    <div class="kicker">First, the basics</div>
+    <h2>How does a normal computer even run apps?</h2>
+    <div class="cols">
+      <div class="stack">
+        <div class="layer hw">Hardware <span class="muted">(CPU, memory, disk)</span></div>
+        <div class="layer os">Operating system <span class="muted">(Windows, macOS, Linux)</span></div>
+        <div class="layer boxes">
+          <div class="box app-box"><span class="t">Chrome</span></div>
+          <div class="box app-box"><span class="t">Discord</span></div>
+          <div class="box app-box"><span class="t">Slack</span></div>
+        </div>
+      </div>
+      <ul class="rows">
+        <li class="step" data-focus=".layer.hw" style="--accent: var(--hw-line)"><span class="t">Hardware</span><span class="d">Every computer needs it to work</span></li>
+        <li class="step" data-focus=".layer.os" style="--accent: var(--os-line)"><span class="t">Operating system</span><span class="d">Installed on top of the hardware, and talks to it</span></li>
+        <li class="step" data-focus=".app-box" style="--accent: var(--app-line)"><span class="t">Apps</span><span class="d">The OS does the low-level work on their behalf</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 7. VM architecture (walkthrough) -->
+  <section class="slide">
+    <div class="kicker">Virtual machines</div>
+    <h2>How a VM setup is built</h2>
+    <div class="cols wide-left">
+      <div class="stack">
+        <div class="layer hw">Hardware</div>
+        <div class="layer os">Host operating system</div>
+        <div class="layer hyper">Hypervisor</div>
+        <div class="layer boxes">
+          <div class="box"><span class="t">VM 1</span><span class="part app">Application</span><span class="part lib">Lib / Bin</span><span class="part guest">Guest OS</span></div>
+          <div class="box"><span class="t">VM 2</span><span class="part app">Application</span><span class="part lib">Lib / Bin</span><span class="part guest">Guest OS</span></div>
+          <div class="box"><span class="t">VM 3</span><span class="part app">Application</span><span class="part lib">Lib / Bin</span><span class="part guest">Guest OS</span></div>
+        </div>
+      </div>
+      <ul class="rows">
+        <li class="step" data-focus=".layer.hw" style="--accent: var(--hw-line)"><span class="t">Hardware</span><span class="d">The physical machine</span></li>
+        <li class="step" data-focus=".layer.os" style="--accent: var(--os-line)"><span class="t">Host operating system</span><span class="d">The OS installed on that machine</span></li>
+        <li class="step" data-focus=".layer.hyper" style="--accent: var(--hyper-line)"><span class="t">Hypervisor</span><span class="d">Hands out resources to the VMs</span></li>
+        <li class="step" data-focus=".part.guest" style="--accent: var(--guest-line)"><span class="t">Guest OS</span><span class="d">A full OS installed inside each VM</span></li>
+        <li class="step" data-focus=".part.app" style="--accent: var(--app-line)"><span class="t">Application</span><span class="d">The software that runs in the VM</span></li>
+        <li class="step" data-focus=".part.lib" style="--accent: var(--lib-line)"><span class="t">Dependencies (Lib / Bin)</span><span class="d">The libraries the app needs</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 8. Container architecture (walkthrough) -->
+  <section class="slide">
+    <div class="kicker">Containers</div>
+    <h2>How a container setup is built</h2>
+    <div class="cols wide-left">
+      <div class="stack">
+        <div class="layer hw">Hardware</div>
+        <div class="layer os">Host operating system</div>
+        <div class="layer hyper">Container engine</div>
+        <div class="layer boxes">
+          <div class="box"><span class="t">Container 1</span><span class="part app">Application</span><span class="part lib">Lib / Bin</span></div>
+          <div class="box"><span class="t">Container 2</span><span class="part app">Application</span><span class="part lib">Lib / Bin</span></div>
+          <div class="box"><span class="t">Container 3</span><span class="part app">Application</span><span class="part lib">Lib / Bin</span></div>
+        </div>
+      </div>
+      <ul class="rows">
+        <li class="step" data-focus=".layer.hw" style="--accent: var(--hw-line)"><span class="t">Hardware</span><span class="d">The physical machine</span></li>
+        <li class="step" data-focus=".layer.os" style="--accent: var(--os-line)"><span class="t">Host operating system</span><span class="d">The OS on that machine, shared by all containers</span></li>
+        <li class="step" data-focus=".layer.hyper" style="--accent: var(--hyper-line)"><span class="t">Container engine</span><span class="d">Creates and manages the containers, for example Docker</span></li>
+        <li class="step" data-focus=".part.app" style="--accent: var(--app-line)"><span class="t">Application</span><span class="d">The software that runs in the container</span></li>
+        <li class="step" data-focus=".part.lib" style="--accent: var(--lib-line)"><span class="t">Dependencies (Lib / Bin)</span><span class="d">The libraries the app needs</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 9. What is the difference? -->
+  <section class="slide">
+    <div class="kicker">Question for you</div>
+    <h2>What is the difference?</h2>
+    <div class="cols" style="align-items:start" id="compare">
+      <div class="stack small">
+        <div class="layer hw">Hardware</div>
+        <div class="layer os">Host OS</div>
+        <div class="layer hyper">Hypervisor</div>
+        <div class="layer boxes">
+          <div class="box"><span class="t">VM</span><span class="part app">App</span><span class="part lib">Lib/Bin</span><span class="part guest">Guest OS</span></div>
+          <div class="box"><span class="t">VM</span><span class="part app">App</span><span class="part lib">Lib/Bin</span><span class="part guest">Guest OS</span></div>
+          <div class="box"><span class="t">VM</span><span class="part app">App</span><span class="part lib">Lib/Bin</span><span class="part guest">Guest OS</span></div>
+        </div>
+      </div>
+      <div class="stack small">
+        <div class="layer hw">Hardware</div>
+        <div class="layer os">Host OS</div>
+        <div class="layer hyper">Container engine</div>
+        <div class="layer boxes">
+          <div class="box"><span class="t">Container</span><span class="part app">App</span><span class="part lib">Lib/Bin</span></div>
+          <div class="box"><span class="t">Container</span><span class="part app">App</span><span class="part lib">Lib/Bin</span></div>
+          <div class="box"><span class="t">Container</span><span class="part app">App</span><span class="part lib">Lib/Bin</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="callout step" data-action="glow"><b>The guest OS.</b> Each VM brings its own full OS. Containers share the host's kernel and only pack the app and its libraries.</div>
+  </section>
+
+  <!-- 10. The key differences -->
+  <section class="slide">
+    <div class="kicker">Side by side</div>
+    <h2>The key differences</h2>
+    <table>
+      <tr><th></th><th>🖥️ Virtual machine</th><th>📦 Container</th></tr>
+      <tr class="step"><td>Operating system</td><td>A full OS per VM</td><td>Shares the host's kernel</td></tr>
+      <tr class="step"><td>Size</td><td>Gigabytes</td><td>Megabytes</td></tr>
+      <tr class="step"><td>Start-up</td><td>Minutes</td><td>Seconds</td></tr>
+      <tr class="step"><td>CPU & memory</td><td>More: the OS layer costs extra</td><td>Less: a much smaller footprint</td></tr>
+      <tr class="step"><td>Isolation</td><td>Complete</td><td>Strong, at the OS level</td></tr>
+    </table>
+  </section>
+
+  <!-- 11. When VMs -->
+  <section class="slide">
+    <div class="kicker">When to use</div>
+    <h2>Virtual machines</h2>
+    <ul class="rows big" style="--accent: var(--app-line)">
+      <li class="step"><span class="t">Different operating systems</span><span class="d">Windows and Linux on the same hardware</span></li>
+      <li class="step"><span class="t">Legacy applications</span><span class="d">Apps that need an old or outdated OS</span></li>
+      <li class="step"><span class="t">High security demands</span><span class="d">VMs offer complete isolation</span></li>
+    </ul>
+  </section>
+
+  <!-- 12. When containers -->
+  <section class="slide">
+    <div class="kicker">When to use</div>
+    <h2>Containers</h2>
+    <ul class="rows big" style="--accent: var(--hyper-line)">
+      <li class="step"><span class="t">Microservices</span><span class="d">Apps built from independent parts</span></li>
+      <li class="step"><span class="t">CI/CD pipelines</span><span class="d">Fast start-up for frequent testing and deploying</span></li>
+      <li class="step"><span class="t">Portability</span><span class="d">Move your app between environments, it runs the same everywhere</span></li>
+      <li class="step"><span class="t">The cloud</span><span class="d">Easy to deploy, great for cloud and hybrid setups</span></li>
+    </ul>
+  </section>
+
+  <!-- 13. Why does this matter -->
+  <section class="slide">
+    <div class="kicker">Why should you care?</div>
+    <h2>Who uses this?</h2>
+    <div class="cols equal">
+      <div class="card">
+        <h3>☁️ Microsoft (Azure)</h3>
+        <p>Gives every customer their own virtual server, without a separate physical machine for each one.</p>
+      </div>
+      <div class="card">
+        <h3>🧑‍💻 Developers</h3>
+        <p>Create isolated environments on their own computer, or try out a different OS.</p>
+      </div>
+    </div>
+    <div class="callout step">You built an app for your company and want to host it on <b>Azure</b>? Depending on the service you pick, it runs in a <b>VM</b> or in a <b>container</b>.</div>
+  </section>
+
+  <!-- 14. Docker recap -->
+  <section class="slide">
+    <div class="kicker">Recap</div>
+    <h2>So what is <span>Docker</span>? 🐳</h2>
+    <p class="lead">An <b>open-source containerization platform</b>.</p>
+    <p class="lead step">It packages your software <em>and everything it needs</em> into one standard unit: a <b>container</b>.</p>
+    <p class="lead step">Containers share the host's kernel, so they're <b>efficient and lightweight</b>.</p>
+  </section>
+
+  <!-- 15. Basic concepts -->
+  <section class="slide">
+    <div class="kicker">Basic concepts</div>
+    <h2>Three words to remember</h2>
+    <div class="cols three equal">
+      <div class="card step">
+        <h3>📜 Image</h3>
+        <p>The <b>blueprint</b>: a read-only template with everything the app needs.</p>
+      </div>
+      <div class="card step">
+        <h3>📦 Container</h3>
+        <p>A <b>running instance</b> of an image. Make as many as you like.</p>
+      </div>
+      <div class="card step">
+        <h3>🏛️ Registry</h3>
+        <p>Where images are <b>shared</b>, like Docker Hub: GitHub for images.</p>
+      </div>
+    </div>
+    <div class="callout step">Today's game image lives in GitHub's registry: <code>ghcr.io</code></div>
+  </section>
+
+  <!-- 16. Definition: Docker images -->
+  <section class="slide">
+    <div class="definition">
+      <div class="term">Zooming in on</div>
+      <h1>Docker images</h1>
+      <blockquote class="step">The <b>fundamental building blocks</b> of containers. Immutable, <b>read-only templates</b> containing everything needed to run an application: the operating system, application code, runtime and dependencies.</blockquote>
+      <p class="step muted" style="margin-top: 34px; font-size: 26px;">They're built from a <b>Dockerfile</b>, layer by layer, and stored in registries like Docker Hub.</p>
+    </div>
+  </section>
+
+  <!-- 17. A simple example image (walkthrough) -->
+  <section class="slide">
+    <div class="kicker">A simple example</div>
+    <h2>Reading a Dockerfile</h2>
+    <div class="cols wide-left" style="align-items:start">
+<pre id="dockerfile" style="font-size: 19px"><span class="ln" data-n="1"><span class="c-key">FROM</span> python:3.12-slim</span><span class="ln" data-n="2"><span class="c-key">WORKDIR</span> /app</span><span class="ln" data-n="3"><span class="c-key">COPY</span> requirements.txt .</span><span class="ln" data-n="4"><span class="c-key">RUN</span> pip install -r requirements.txt</span><span class="ln" data-n="5"><span class="c-key">COPY</span> . .</span><span class="ln" data-n="6"><span class="c-key">CMD</span> [<span class="c-str">"python"</span>, <span class="c-str">"main.py"</span>]</span></pre>
+      <ul class="rows inline">
+        <li class="step" data-focus='.ln[data-n="1"]' style="--accent: var(--hw-line)"><span class="t">FROM</span><span class="d">Start from a base image: a small Linux with Python</span></li>
+        <li class="step" data-focus='.ln[data-n="2"]' style="--accent: var(--os-line)"><span class="t">WORKDIR</span><span class="d">Work inside the folder <code>/app</code></span></li>
+        <li class="step" data-focus='.ln[data-n="3"]' style="--accent: var(--hyper-line)"><span class="t">COPY</span><span class="d">Copy the list of libraries in</span></li>
+        <li class="step" data-focus='.ln[data-n="4"]' style="--accent: var(--lib-line)"><span class="t">RUN</span><span class="d">Install those libraries</span></li>
+        <li class="step" data-focus='.ln[data-n="5"]' style="--accent: var(--app-line)"><span class="t">COPY</span><span class="d">Copy your own code in</span></li>
+        <li class="step" data-focus='.ln[data-n="6"]' style="--accent: var(--guest-line)"><span class="t">CMD</span><span class="d">What to run when a container starts</span></li>
+      </ul>
+    </div>
+    <div class="callout step"><code>docker build -t my-app .</code> turns this recipe into an image. Every line becomes a layer.</div>
+  </section>
+
+  <!-- 18. Class analogy -->
+  <section class="slide">
+    <div class="kicker">If you know Python...</div>
+    <h2>Image = class, container = instance</h2>
+    <div class="cols">
+<pre><span class="ln"><span class="c-key">class</span> WebApp:        <span class="c-com"># the image</span></span><span class="ln">    ...</span><span class="ln"> </span><span class="ln">app1 = WebApp()       <span class="c-com"># container 1</span></span><span class="ln">app2 = WebApp()       <span class="c-com"># container 2</span></span></pre>
+      <div>
+        <p>One <b>class</b>, many <b>objects</b>.</p>
+        <p class="step">One <b>image</b>, many <b>containers</b>.</p>
+        <p class="step muted">Each container is its own separate copy, but they all come from the same blueprint.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 19. Containers -->
+  <section class="slide">
+    <div class="definition">
+      <div class="term">Zooming in on</div>
+      <h1>Docker containers</h1>
+      <blockquote class="step">A <b>running instance of a Docker image</b>. An isolated runtime environment where applications run without interfering with each other or the host system.</blockquote>
+      <p class="step muted" style="margin-top: 34px; font-size: 26px;">Each container has its <b>own file system, networking and process space</b>, but shares the <b>host's kernel</b>.</p>
+      <p class="step muted" style="font-size: 26px;">The image is the blueprint. The container is the blueprint brought to life. ▶️</p>
+    </div>
+  </section>
+
+  <!-- 20. Lifecycle -->
+  <section class="slide">
+    <div class="kicker">Lifecycle</div>
+    <h2>From Dockerfile to container</h2>
+    <div class="lifecycle">
+      <div class="lc-row">
+        <div class="state file"><span class="em">📄</span>Dockerfile<small>the recipe</small></div>
+        <div class="lc-group step"><div class="arrow"><code>docker build</code><div class="line"></div></div><div class="state img"><span class="em">📜</span>Image<small>the blueprint</small></div></div>
+        <div class="lc-group step"><div class="arrow"><code>docker create</code><div class="line"></div></div><div class="state"><span class="em">📦</span>Container<small>created</small></div></div>
+      </div>
+      <div class="lc-down step"><code>docker start</code><span class="v">↓</span></div>
+      <div class="lc-row rev">
+        <div class="state run step" data-step="3"><span class="em">▶️</span>Running</div>
+        <div class="lc-group step"><div class="arrow left"><code>docker stop</code><div class="line"></div></div><div class="state stop"><span class="em">⏸️</span>Stopped</div></div>
+        <div class="lc-group step"><div class="arrow left"><code>docker rm</code><div class="line"></div></div><div class="state dead"><span class="em">🗑️</span>Removed</div></div>
+      </div>
+    </div>
+    <div class="callout step"><code>docker run</code> = <code>docker create</code> + <code>docker start</code> in one command</div>
+  </section>
+
+  <!-- 21. Let's play a game -->
+  <section class="slide play-slide">
+    <canvas class="big-ghost" width="16" height="16"></canvas>
+    <div class="kicker">Enough theory</div>
+    <h1>Let's play a game! 🎮</h1>
+    <p class="sub">Escape the <b>Haunted Container Manor</b> using real Docker commands.</p>
+  </section>
+
+  <!-- 22. Cheat sheet -->
+  <section class="slide">
+    <div class="kicker">Cheat sheet</div>
+    <h2>Commands you'll use in the game</h2>
+    <div class="cols" style="align-items:start">
+      <table>
+        <tr><td><code>docker run</code></td><td>make + start a container</td></tr>
+        <tr><td><code>docker ps</code></td><td>running containers</td></tr>
+        <tr><td><code>docker ps -a</code></td><td>all containers</td></tr>
+        <tr><td><code>docker stop</code></td><td>stop a container</td></tr>
+      </table>
+      <table>
+        <tr><td><code>docker start</code></td><td>start it again</td></tr>
+        <tr><td><code>docker logs</code></td><td>what it wrote</td></tr>
+        <tr><td><code>docker rm</code></td><td>delete a container</td></tr>
+        <tr><td><code>docker images</code></td><td>your images</td></tr>
+      </table>
+    </div>
+    <div class="callout">Stuck? Add <code>--help</code> to any command, or ask Judit 🙋‍♀️</div>
+  </section>
+
+  <!-- 23. Enter the game -->
+  <section class="slide">
+    <div class="kicker">Hands-on</div>
+    <h2>The Haunted Container Manor 🏚️</h2>
+    <ul class="rows big">
+      <li><span class="t">1. Open a Codespace</span><span class="d">Repo → Code → Codespaces → Create codespace on main</span></li>
+      <li><span class="t">2. Start the game</span><span class="d"><code>docker run -d -p 8000:8000 --name manor ...</code></span></li>
+      <li><span class="t">3. Open it</span><span class="d">Ports tab → click 🌐 next to port 8000</span></li>
+      <li><span class="t">4. Play</span><span class="d">Headphones on, and escape the manor!</span></li>
+    </ul>
+    <div class="callout">Fun fact: a Codespace is a <b>virtual machine</b>. You're about to run <b>containers</b> inside a VM, on a server you've never seen.</div>
+  </section>
+
+  <canvas id="booker" width="16" height="16"></canvas>
+  <div id="progress"></div>
+  <div id="counter"></div>
+  <div id="hint">→ / space / click for the next step · ← back · F full screen</div>
+</div>
+
+<script>
+  const slides = [...document.querySelectorAll(".slide")];
+  let current = 0;
+
+  // Open with ?all in the address to see every step at once (handy for sharing or printing)
+  const ALL = new URLSearchParams(location.search).has("all");
+
+  // Steps on a slide, in order. data-step="n" makes an element appear together with step n.
+  const stepsOf = (s) => [...s.querySelectorAll(".step:not([data-step])")];
+  const shownCount = (s) => stepsOf(s).filter((el) => el.classList.contains("shown")).length;
+
+  function setSteps(s, count) {
+    const steps = stepsOf(s);
+    steps.forEach((el, i) => el.classList.toggle("shown", i < count));
+    s.querySelectorAll(".step[data-step]").forEach((el) => {
+      el.classList.toggle("shown", count >= Number(el.dataset.step));
+    });
+
+    // Actions tied to a step: the machine split and the guest OS highlight
+    const reached = (action) => steps.some((el, i) => i < count && el.dataset.action === action);
+    s.querySelector("#rack")?.classList.toggle("split", reached("split"));
+    s.querySelector("#compare")?.classList.toggle("glow", reached("glow"));
+
+    // Walkthroughs: light up the diagram part or code line of the latest step
+    s.querySelectorAll(".focus").forEach((el) => el.classList.remove("focus"));
+    const latest = steps.slice(0, count).reverse().find((el) => el.dataset.focus);
+    const walking = Boolean(latest) && !ALL;
+    s.querySelector(".stack")?.classList.toggle("focusing", walking);
+    s.querySelector("pre")?.classList.toggle("walking", walking);
+    if (walking) s.querySelectorAll(latest.dataset.focus).forEach((el) => el.classList.add("focus"));
+
+    // Remember slide and step in the address (#7.3 = slide 7, step 3), so a refresh keeps your place
+    history.replaceState(null, "", `${location.search}#${current + 1}${count ? "." + count : ""}`);
+  }
+
+  function show(i, revealAll = ALL, stepCount = 0) {
+    current = Math.max(0, Math.min(slides.length - 1, i));
+    slides.forEach((s, j) => s.classList.toggle("active", j === current));
+    const s = slides[current];
+    document.getElementById("counter").textContent = `${current + 1} / ${slides.length}`;
+    document.getElementById("progress").style.width = `${((current + 1) / slides.length) * 100}%`;
+    setSteps(s, revealAll ? stepsOf(s).length : Math.min(stepCount, stepsOf(s).length));
+  }
+
+  function next() {
+    const s = slides[current];
+    const n = shownCount(s);
+    if (n < stepsOf(s).length) setSteps(s, n + 1);
+    else if (current < slides.length - 1) show(current + 1);
+  }
+
+  function prev() {
+    const s = slides[current];
+    const n = shownCount(s);
+    if (n > 0) setSteps(s, n - 1);
+    else if (current > 0) show(current - 1, true);
+  }
+
+  function fit() {
+    const scale = Math.min(innerWidth / 1280, innerHeight / 720);
+    document.getElementById("deck").style.setProperty("--scale", scale);
+  }
+
+  document.addEventListener("keydown", (e) => {
+    if (["ArrowRight", "ArrowDown", "PageDown", " ", "Enter"].includes(e.key)) { e.preventDefault(); next(); }
+    if (["ArrowLeft", "ArrowUp", "PageUp", "Backspace"].includes(e.key)) { e.preventDefault(); prev(); }
+    if (e.key === "Home") show(0);
+    if (e.key === "End") show(slides.length - 1);
+    if (e.key === "f" || e.key === "F") {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else document.documentElement.requestFullscreen();
+    }
+  });
+
+  // Click the right half for the next step, the left half to go back
+  document.addEventListener("click", (e) => (e.clientX > innerWidth / 2 ? next() : prev()));
+
+  setTimeout(() => (document.getElementById("hint").style.opacity = 0), 7000);
+
+  // Boo-ker, the little pixel ghost from the game
+  const GHOST = [
+    "................", ".....kkkkkk.....", "....kwwwwwwk....", "...kwwwwwwwwk...",
+    "..kwwwwwwwwwwk..", "..kweewwwweewk..", "..kweewwwweewk..", "..kwpwwwwwwpwk..",
+    "..kwwwwkkwwwwk..", "..kwwwwwwwwwwk..", "..kwwwwwwwwwgk..", "..kwwwwwwwwggk..",
+    "..kwwgwwwgwwgk..", "..kwk.kwwk.kwk..", "...k...kk...k...", "................",
+  ];
+  const PAL = { k: "#1a1022", w: "#f4f0ff", g: "#b9b0e0", e: "#1a1022", p: "#ff9ad5" };
+  document.querySelectorAll("#booker, .big-ghost").forEach((canvas) => {
+    const ghost = canvas.getContext("2d");
+    GHOST.forEach((row, y) => [...row].forEach((ch, x) => {
+      if (ch !== ".") { ghost.fillStyle = PAL[ch]; ghost.fillRect(x, y, 1, 1); }
+    }));
+  });
+
+  addEventListener("resize", fit);
+  fit();
+  const [, slideNo = "1", stepNo = "0"] = location.hash.match(/^#(\d+)(?:\.(\d+))?/) || [];
+  show(Number(slideNo) - 1, ALL, Number(stepNo));
+</script>
+</body>
+</html>

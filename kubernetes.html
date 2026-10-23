@@ -1,0 +1,844 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Docker workshop: Kubernetes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #12111c;
+    --panel: #1b1a29;
+    --panel-2: #232236;
+    --line: #2f2d45;
+    --text: #f1eef9;
+    --muted: #a19cb8;
+    --gold: #ffc857;
+    --pink: #ff7a90;
+    --green: #7ddba3;
+    --app: #33202e;    --app-line: #ff7a90;
+    --lib: #2c2140;    --lib-line: #d39bff;
+    --hyper: #143532;  --hyper-line: #4fd1b5;
+    --os: #172a48;     --os-line: #6ea8ff;
+    --hw: #291f42;     --hw-line: #ad8cff;
+    --bad: #4a1520;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  body { font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--text); }
+
+  /* A fixed 1280x720 stage, scaled to fit any screen */
+  #deck {
+    position: absolute; left: 50%; top: 50%;
+    width: 1280px; height: 720px;
+    transform: translate(-50%, -50%) scale(var(--scale, 1));
+    background: radial-gradient(ellipse at 15% 0%, #221f38 0%, transparent 55%), var(--bg);
+    overflow: hidden;
+  }
+
+  /* ---------- Slides ---------- */
+  .slide {
+    position: absolute; inset: 0;
+    padding: 58px 90px 76px;
+    display: flex; flex-direction: column;
+    opacity: 0; visibility: hidden; transform: translateY(12px);
+    transition: opacity .4s, transform .4s, visibility .4s;
+  }
+  .slide.active { opacity: 1; visibility: visible; transform: none; }
+
+  .kicker { font-size: 21px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; color: var(--pink); margin-bottom: 10px; }
+  h1, h2 { margin: 0; font-weight: 800; letter-spacing: -0.5px; }
+  h1 { font-size: 64px; line-height: 1.1; }
+  h2 { font-size: 42px; line-height: 1.2; margin-bottom: 26px; }
+  h1 span, h2 span { color: var(--gold); }
+
+  p, li { font-size: 26px; line-height: 1.5; }
+  p { margin: 0 0 18px; }
+  .lead { font-size: 30px; }
+  .muted { color: var(--muted); }
+  b, strong { color: var(--gold); font-weight: 600; }
+  em { color: var(--pink); font-style: normal; }
+
+  code, pre { font-family: "JetBrains Mono", monospace; }
+  code { background: var(--panel-2); color: var(--gold); padding: 2px 8px; border-radius: 6px; font-size: .88em; white-space: nowrap; }
+
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 56px; flex: 1; align-items: center; }
+  .cols.wide-left { grid-template-columns: 1.1fr 1fr; }
+  .cols.three { grid-template-columns: repeat(3, 1fr); gap: 22px; }
+  /* Boxes in an .equal row are always the same width and height */
+  .cols.equal { flex: 0 0 auto; align-items: stretch; grid-auto-rows: 1fr; }
+
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 30px 32px; }
+  .card h3 { margin: 0 0 14px; font-size: 30px; }
+  .card p { font-size: 24px; margin: 0; }
+  .card.sm { padding: 20px 24px; }
+  .card.sm h3 { font-size: 24px; margin-bottom: 8px; }
+  .card.sm p { font-size: 19px; line-height: 1.4; color: var(--muted); }
+  .card.by-hand { border-top: 5px solid var(--app-line); }
+  .card.k8s { border-top: 5px solid var(--hyper-line); }
+
+  .callout {
+    margin-top: auto; padding: 20px 28px; border-radius: 14px;
+    background: #ffc85712; border-left: 5px solid var(--gold); font-size: 25px;
+  }
+
+  /* Clean list rows: a small accent bar, a bold title and a short description */
+  .rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
+  .rows li {
+    display: grid; grid-template-columns: 6px 1fr; column-gap: 16px;
+    padding: 8px 16px; border-radius: 12px; background: var(--panel);
+    font-size: 21px; line-height: 1.3;
+  }
+  .rows li::before { content: ""; grid-row: span 2; border-radius: 3px; background: var(--accent, var(--gold)); }
+  .rows li .t { font-weight: 700; color: var(--text); }
+  .rows li .d { color: var(--muted); font-size: 18px; }
+  .rows.big { gap: 11px; }
+  .rows.big li { padding: 11px 20px; }
+  .rows.big li .t { font-size: 24px; }
+  .rows.big li .d { font-size: 20px; }
+  .rows.inline li { grid-template-columns: 6px max-content 1fr; align-items: baseline; padding: 9px 16px; }
+  .rows.inline li::before { grid-row: auto; align-self: stretch; }
+  .rows.inline li .d { padding-left: 12px; }
+
+  pre {
+    margin: 0; padding: 18px 0; border-radius: 14px;
+    background: #0c0b14; border: 1px solid var(--line);
+    font-size: 19px; line-height: 1.7; color: #e9e6f5;
+  }
+  pre .ln { display: block; padding: 0 26px; transition: background .3s, opacity .3s; white-space: pre; }
+  pre.walking .ln { opacity: .45; }
+  pre.walking .ln.focus { opacity: 1; background: #ffc8571f; box-shadow: inset 4px 0 0 var(--gold); }
+  .c-key { color: var(--pink); font-weight: 600; }
+  .c-com { color: #7f7a99; }
+  .c-str { color: var(--green); }
+
+  /* Click-through steps: revealed one at a time with → / space / click */
+  .step { opacity: 0; transform: translateY(10px); transition: opacity .4s, transform .4s; }
+  .step.shown { opacity: 1; transform: none; }
+  @keyframes pop { from { opacity: 0; transform: scale(.6); } }
+
+  /* ---------- Big definition slides ---------- */
+  .definition { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+  .definition .term { font-size: 30px; color: var(--muted); margin-bottom: 14px; }
+  .definition h1 { font-size: 80px; color: var(--gold); margin-bottom: 36px; }
+  .definition blockquote {
+    margin: 0; padding-left: 28px; border-left: 5px solid var(--pink);
+    font-size: 34px; line-height: 1.45; max-width: 1050px;
+  }
+  .definition .more { margin-top: 30px; font-size: 26px; color: var(--muted); }
+  .definition .more + .more { margin-top: 0; }
+
+  /* ---------- One container: the little box ---------- */
+  .story p { font-size: 24px; margin-bottom: 16px; }
+  .story.tight p { font-size: 22px; margin-bottom: 12px; }
+  .crate {
+    position: relative; width: 380px; margin: 30px auto 0; padding: 28px 22px 18px;
+    background: var(--hyper); border: 3px solid var(--hyper-line); border-radius: 18px;
+    transition: box-shadow .5s;
+  }
+  .crate::before {   /* the lid */
+    content: ""; position: absolute; top: -18px; left: 26px; right: 26px; height: 18px;
+    background: #1d4a45; border: 3px solid var(--hyper-line); border-bottom: 0; border-radius: 10px 10px 0 0;
+  }
+  .crate .name { position: absolute; top: -52px; left: 0; right: 0; text-align: center; font-size: 18px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--hyper-line); }
+  .crate .item {
+    display: flex; align-items: center; gap: 14px; margin-bottom: 10px; padding: 12px 16px;
+    background: #0c0b14aa; border: 1px solid #4fd1b555; border-radius: 10px; font-size: 22px; font-weight: 600;
+  }
+  .crate .item span { font-size: 28px; }
+  .crate .item.app { border-color: var(--gold); }
+  .run-pill { text-align: center; margin-top: 22px; font-size: 22px; }
+  .act-run .crate { box-shadow: 0 0 0 4px var(--green), 0 0 36px #7ddba366; }
+
+  /* ---------- 50,000 containers: the growing fleet ---------- */
+  .fleet-wrap { position: relative; }
+  .fleet { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+  .srv {
+    background: var(--hw); border: 2px solid var(--hw-line); border-radius: 10px; padding: 8px;
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px;
+    opacity: 0; transform: scale(.6); transition: opacity .4s, transform .4s; transition-delay: var(--d, 0s);
+  }
+  .srv.first, .act-grow .srv { opacity: 1; transform: none; }
+  .ct {
+    height: 24px; border-radius: 5px; background: var(--hyper); border: 2px solid var(--hyper-line);
+    opacity: 0; transition: opacity .3s, background .3s, border-color .3s; transition-delay: var(--d, 0s);
+  }
+  .ct.first, .act-grow .ct { opacity: 1; }
+  .act-crash .ct.bad { background: var(--bad); border-color: var(--pink); transition-delay: 0s; animation: blink 1s ease-in-out infinite; }
+  @keyframes blink { 50% { opacity: .35; } }
+  .net { position: absolute; inset: 0; z-index: 0; overflow: visible; pointer-events: none; }
+  .net line { stroke: var(--gold); stroke-width: 3; stroke-dasharray: 6 6; opacity: 0; transition: opacity .5s; }
+  .act-net .net line { opacity: .8; }
+  .fleet-label { font-size: 17px; color: var(--muted); margin-top: 12px; text-align: center; }
+
+  /* ---------- Pods: desired vs current state ---------- */
+  .state-box { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 18px 22px; margin-bottom: 16px; }
+  .state-label { display: flex; justify-content: space-between; font-size: 17px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+  .pods-row { display: flex; gap: 12px; }
+  .pod {
+    width: 74px; height: 74px; border-radius: 14px; display: grid; place-items: center; font-size: 30px;
+    background: var(--hyper); border: 2px solid var(--hyper-line); transition: all .4s;
+  }
+  .pod.slot { background: transparent; border: 2px dashed var(--muted); }
+  .pod .x, .cnt .bad { display: none; }
+  .act-crash .pod.victim { background: var(--bad); border-color: var(--pink); }
+  .act-crash .pod.victim .ok, .act-crash .cnt .ok { display: none; }
+  .act-crash .pod.victim .x, .act-crash .cnt .bad { display: inline; }
+  /* healing comes after crashing, so these rules win */
+  .act-heal .pod.victim { background: var(--hyper); border-color: var(--green); box-shadow: 0 0 0 3px var(--green), 0 0 24px #7ddba366; }
+  .act-heal .pod.victim .ok, .act-heal .cnt .ok { display: inline; }
+  .act-heal .pod.victim .x, .act-heal .cnt .bad { display: none; }
+  .cnt .ok { color: var(--green); }
+  .cnt .bad { color: var(--pink); }
+
+  /* ---------- From container to cluster: nested boxes that grow ---------- */
+  .nest { display: flex; justify-content: center; align-items: center; height: 100%; }
+  .n-cluster, .n-node, .n-pod {
+    position: relative; border: 2px solid transparent; border-radius: 16px;
+    transition: border-color .4s, background .4s, padding .4s;
+  }
+  .n-lbl { position: absolute; top: 6px; left: 12px; font-size: 13px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; opacity: 0; transition: opacity .4s; }
+  .n-cluster { padding: 6px; }
+  .n-cp, .n-node.extra, .n-pod.extra, .n-ct.extra { display: none; }
+  .n-nodes { display: flex; gap: 14px; align-items: stretch; }
+  .n-node { padding: 6px; }
+  .n-pods { display: flex; gap: 10px; align-items: center; }
+  .n-pod { padding: 6px; display: flex; gap: 8px; }
+  .n-ct {
+    width: 64px; height: 64px; border-radius: 12px; display: grid; place-items: center; font-size: 30px;
+    background: var(--hyper); border: 2px solid var(--hyper-line);
+  }
+  /* step 1: a pod around the container */
+  .act-pod .n-pod { border-color: var(--hyper-line); background: #4fd1b512; padding: 30px 12px 12px; }
+  .act-pod .n-pod .n-lbl { opacity: 1; color: var(--hyper-line); }
+  .act-pod .n-pod .n-ct.extra { display: grid; animation: pop .4s; }
+  /* step 2: a node (machine) that runs pods */
+  .act-node .n-node { border-color: var(--hw-line); background: var(--hw); padding: 32px 14px 14px; }
+  .act-node .n-node > .n-lbl { opacity: 1; color: var(--hw-line); }
+  .act-node .n-pod.extra { display: flex; animation: pop .4s; }
+  /* step 3: a cluster of nodes, with a control plane */
+  .act-cluster .n-cluster { border: 2px dashed var(--muted); padding: 34px 16px 16px; }
+  .act-cluster .n-cluster > .n-lbl { opacity: 1; color: var(--muted); }
+  .act-cluster .n-cp {
+    display: block; margin-bottom: 12px; padding: 10px; border-radius: 12px; text-align: center;
+    background: var(--os); border: 2px solid var(--os-line); font-size: 18px; font-weight: 700; animation: pop .4s;
+  }
+  .act-cluster .n-node.extra { display: block; animation: pop .4s; }
+
+  /* ---------- Cluster diagrams ---------- */
+  .diagram .focus { box-shadow: 0 0 0 3px var(--gold), 0 0 26px #ffc85766; }
+  .cluster {
+    position: relative; border: 2px dashed var(--muted); border-radius: 18px;
+    padding: 40px 16px 16px; display: flex; flex-direction: column; gap: 14px; transition: box-shadow .3s;
+  }
+  .cluster > .lbl, .wrap-lbl { position: absolute; top: 10px; left: 18px; font-size: 15px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); }
+  .cp {
+    background: var(--os); border: 2px solid var(--os-line); border-radius: 12px; padding: 14px;
+    text-align: center; font-size: 20px; font-weight: 700; transition: box-shadow .3s;
+  }
+  .nodes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .node {
+    position: relative; background: var(--hw); border: 2px solid var(--hw-line); border-radius: 12px; padding: 10px;
+    display: flex; flex-direction: column; gap: 8px; transition: box-shadow .3s, filter .4s, border-color .4s;
+  }
+  .node .t { font-size: 16px; font-weight: 800; text-align: center; }
+  .node .pods { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; min-height: 92px; align-content: flex-start; }
+  .mini-pod {
+    width: 42px; height: 42px; border-radius: 9px; display: grid; place-items: center; font-size: 19px;
+    background: var(--hyper); border: 2px solid var(--hyper-line); transition: box-shadow .3s, opacity .4s, transform .4s;
+  }
+  /* node failure */
+  .mini-pod.moved { opacity: 0; transform: scale(.4); }
+  .act-move .mini-pod.moved { opacity: 1; transform: none; box-shadow: 0 0 0 2px var(--green), 0 0 16px #7ddba366; }
+  .node .down-tag { display: none; position: absolute; inset: auto 0 10px; text-align: center; font-size: 15px; font-weight: 800; color: var(--pink); }
+  .act-fail .node.down { filter: grayscale(.8) brightness(.6); border-color: var(--pink); }
+  .act-fail .node.down .down-tag { display: block; }
+  .act-move .node.down .mini-pod { opacity: 0; }
+
+  /* component boxes (control plane, worker node) */
+  .big-box { position: relative; border-radius: 18px; padding: 44px 18px 18px; border: 2px solid; }
+  .big-box.cp-box { background: #101c33; border-color: var(--os-line); }
+  .big-box.node-box { background: #1c1530; border-color: var(--hw-line); }
+  .comps { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .comp {
+    background: var(--panel); border: 2px solid var(--line); border-radius: 12px; padding: 16px 12px;
+    text-align: center; font-size: 20px; font-weight: 700; transition: box-shadow .3s;
+  }
+  .comp small { display: block; margin-top: 4px; font-size: 15px; font-weight: 500; color: var(--muted); }
+  .comp.wide { grid-column: span 2; }
+
+  /* service flow */
+  .flow { display: flex; align-items: center; gap: 0; margin: 10px 0 0; }
+  .actor, .svc { flex: 0 0 auto; border-radius: 16px; padding: 18px 20px; text-align: center; font-weight: 800; font-size: 20px; border: 2px solid; }
+  .actor { background: var(--panel); border-color: var(--line); }
+  .actor .em, .svc .em { display: block; font-size: 34px; }
+  .svc { background: var(--os); border-color: var(--os-line); }
+  .svc small, .actor small { display: block; font-size: 15px; font-weight: 500; color: var(--muted); margin-top: 4px; }
+  .arrow { flex: 1; min-width: 60px; padding: 0 8px; }
+  .arrow .line { height: 3px; background: linear-gradient(90deg, var(--line), var(--gold)); position: relative; }
+  .arrow .line::after {
+    content: ""; position: absolute; right: -2px; top: -6px;
+    border-left: 12px solid var(--gold); border-top: 7.5px solid transparent; border-bottom: 7.5px solid transparent;
+  }
+  .fan { display: flex; flex-direction: column; gap: 14px; }
+  .fan .row { display: flex; align-items: center; }
+  .fan .arrow { width: 90px; flex: 0 0 90px; }
+  .fan .pod { width: 64px; height: 64px; font-size: 26px; }
+  .fan .lbl { margin-left: 12px; font-size: 17px; color: var(--muted); }
+
+  /* ---------- Tables ---------- */
+  table { width: 100%; border-collapse: collapse; font-size: 23px; }
+  th, td { padding: 14px 18px; text-align: left; border-bottom: 1px solid var(--line); }
+  th { font-size: 22px; font-weight: 800; }
+  td:first-child { color: var(--muted); }
+  tr:last-child td { border-bottom: 0; }
+
+  /* ---------- Title / closing slides ---------- */
+  .title-slide { justify-content: center; }
+  .title-slide .sub { font-size: 30px; margin-top: 24px; color: var(--muted); }
+  .title-slide .badge {
+    display: inline-block; margin-top: 50px; padding: 10px 18px; border-radius: 999px;
+    background: var(--panel); border: 1px solid var(--line); font-size: 20px; color: var(--muted);
+  }
+  .center-slide { justify-content: center; align-items: center; text-align: center; }
+  .center-slide h1 { font-size: 76px; color: var(--gold); }
+  .center-slide .sub { font-size: 30px; margin-top: 22px; color: var(--muted); }
+  .big-ghost { width: 176px; height: 176px; margin-bottom: 26px; image-rendering: pixelated; animation: bob 2.6s ease-in-out infinite; }
+
+  /* ---------- Boo-ker in the corner ---------- */
+  #booker {
+    position: absolute; left: 26px; bottom: 14px; width: 40px; height: 40px;
+    image-rendering: pixelated; opacity: .85; animation: bob 3s ease-in-out infinite;
+  }
+  @keyframes bob { 50% { transform: translateY(-6px) rotate(-4deg); } }
+
+  /* ---------- Chrome: progress, counter, hint ---------- */
+  #progress { position: absolute; left: 0; bottom: 0; height: 5px; background: var(--gold); transition: width .4s; }
+  #counter { position: absolute; right: 40px; bottom: 22px; font-size: 15px; font-weight: 600; color: var(--muted); }
+  #hint { position: absolute; left: 50%; bottom: 20px; transform: translateX(-50%); font-size: 15px; color: #6c6886; transition: opacity 1s; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<div id="deck">
+
+  <!-- 1. Title -->
+  <section class="slide title-slide">
+    <div class="kicker">Docker workshop · Part 2</div>
+    <h1>Kubernetes:<br><span>containers at scale</span></h1>
+    <p class="sub">What happens when one container becomes 50,000</p>
+    <div><span class="badge">☸️ From one little box to a whole cluster</span></div>
+  </section>
+
+  <!-- 2. Agenda -->
+  <section class="slide">
+    <div class="kicker">Agenda</div>
+    <h2>What we'll cover</h2>
+    <ul class="rows big">
+      <li><span class="t">One container</span><span class="d">A quick look back at Docker</span></li>
+      <li><span class="t">50,000 containers</span><span class="d">Why that gets out of hand</span></li>
+      <li><span class="t">Kubernetes</span><span class="d">What it does for you, automatically</span></li>
+      <li><span class="t">From container to cluster</span><span class="d">Pods, nodes and the cluster, from small to big</span></li>
+      <li><span class="t">Deployments, services & kubectl</span><span class="d">And how it compares to Docker</span></li>
+    </ul>
+  </section>
+
+  <!-- 3. One container -->
+  <section class="slide">
+    <div class="kicker">A quick look back</div>
+    <h2>Running one container</h2>
+    <div class="cols" style="grid-template-columns: 1.1fr 1fr; gap: 44px;">
+      <div class="story">
+        <p><b>Docker</b> is a set of tools that lets you create, edit and run containers.</p>
+        <p class="step">A <b>container</b> is just an application in a small box, together with everything it needs to run.</p>
+        <p class="step">Because everything is inside the box, it runs the same on any machine.</p>
+        <p class="step" data-action="run">Starting it is one command: <code>docker run my-app</code>. Easy. ✅</p>
+      </div>
+      <div>
+        <div class="crate">
+          <div class="name">📦 Container</div>
+          <div class="item app"><span>🧑‍💻</span>Your application</div>
+          <div class="item"><span>📚</span>Libraries it needs</div>
+          <div class="item"><span>⚙️</span>Settings</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. 50,000 containers (interactive) -->
+  <section class="slide">
+    <div class="kicker">Now imagine...</div>
+    <h2>50,000 containers</h2>
+    <div class="cols" style="grid-template-columns: 1.1fr 1fr; gap: 44px;">
+      <div class="story tight">
+        <p>You have to start <b>50,000 containers</b>. Way too many for one server.</p>
+        <p class="step" data-action="grow">So you spread them out: <b>500 servers</b>, 100 containers each. That's 500 logins and a lot of commands. 😵</p>
+        <p class="step" data-action="net">The containers need to talk to each other? Then you set up all the <b>network connections</b> between them.</p>
+        <p class="step" data-action="crash">With 50,000 running, something <b>will</b> break, somewhere. Every day you hunt down the broken ones and restart them by hand.</p>
+        <p class="step">Not a fun life. 😩</p>
+      </div>
+      <div>
+        <div class="fleet-wrap">
+          <svg class="net" id="net"></svg>
+          <div class="fleet" id="fleet"></div>
+        </div>
+        <div class="fleet-label step" data-step="1">Each purple box is a server, each green block a container</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. Definition -->
+  <section class="slide">
+    <div class="definition">
+      <div class="term">This is why we have</div>
+      <h1>Kubernetes</h1>
+      <blockquote class="step">A system created to <b>orchestrate containers</b>: it automates deploying, scaling and managing them <b>across many servers</b>.</blockquote>
+      <p class="step more">Docker runs a container. Kubernetes runs <b>thousands</b> of them, and keeps them healthy.</p>
+      <p class="step more">Often written as <b>K8s</b>: a K, then 8 letters, then an s.</p>
+    </div>
+  </section>
+
+  <!-- 6. What it does -->
+  <section class="slide">
+    <div class="kicker">Automation</div>
+    <h2>What Kubernetes does for you</h2>
+    <div class="cols three equal">
+      <div class="card sm step"><h3>🚀 Starts them</h3><p>All your containers, spread over many servers at once</p></div>
+      <div class="card sm step"><h3>🌐 Connects them</h3><p>Sets up the networks between containers</p></div>
+      <div class="card sm step"><h3>👀 Watches them</h3><p>Checks they work, and restarts whatever breaks</p></div>
+      <div class="card sm step"><h3>📈 Scales up</h3><p>A news article sends extra traffic? It adds containers</p></div>
+      <div class="card sm step"><h3>📉 Scales down</h3><p>Closes the containers you don't need anymore</p></div>
+      <div class="card sm step"><h3>⚖️ Balances traffic</h3><p>Sends traffic to the servers that have room</p></div>
+    </div>
+  </section>
+
+  <!-- 7. Declarative -->
+  <section class="slide">
+    <div class="kicker">The big idea</div>
+    <h2>You say <span>what</span>, Kubernetes figures out <span>how</span></h2>
+    <div class="cols equal">
+      <div class="card by-hand">
+        <h3>✋ By hand</h3>
+<pre style="margin-top: 6px"><span class="ln">docker run -d my-app  <span class="c-com"># server 1</span></span><span class="ln">docker run -d my-app  <span class="c-com"># server 2</span></span><span class="ln">docker run -d my-app  <span class="c-com"># server 3</span></span><span class="ln"><span class="c-com">... 49,997 more</span></span></pre>
+        <p class="muted" style="margin-top: 14px; font-size: 20px;">You list every <b>step</b> yourself.</p>
+      </div>
+      <div class="card k8s step">
+        <h3>🧾 With Kubernetes</h3>
+<pre style="margin-top: 6px"><span class="ln"><span class="c-key">image:</span> <span class="c-str">my-app</span></span><span class="ln"><span class="c-key">replicas:</span> <span class="c-str">50000</span></span></pre>
+        <p class="muted" style="margin-top: 14px; font-size: 20px;">You describe the <b>result</b>. Kubernetes does the rest.</p>
+      </div>
+    </div>
+    <div class="callout step">This is called the <b>declarative</b> approach. The file you write it in uses <b>YAML</b>.</div>
+  </section>
+
+  <!-- 9. From container to cluster (interactive) -->
+  <section class="slide">
+    <div class="kicker">How it's built: small to big</div>
+    <h2>From container to cluster</h2>
+    <div class="cols" style="grid-template-columns: 1.25fr 1fr; gap: 40px;">
+      <div class="nest">
+        <div class="n-cluster">
+          <span class="n-lbl">Cluster</span>
+          <div class="n-cp">🧠 Control plane</div>
+          <div class="n-nodes">
+            <div class="n-node">
+              <span class="n-lbl">Node</span>
+              <div class="n-pods">
+                <div class="n-pod"><span class="n-lbl">Pod</span><div class="n-ct">📦</div><div class="n-ct extra">📦</div></div>
+                <div class="n-pod extra"><span class="n-lbl">Pod</span><div class="n-ct">📦</div></div>
+              </div>
+            </div>
+            <div class="n-node extra">
+              <span class="n-lbl">Node</span>
+              <div class="n-pods">
+                <div class="n-pod"><span class="n-lbl">Pod</span><div class="n-ct">📦</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <ul class="rows big">
+        <li style="--accent: var(--hyper-line)"><span class="t">📦 Container</span><span class="d">Your app in a small box</span></li>
+        <li class="step" data-action="pod" style="--accent: var(--hyper-line)"><span class="t">Pod</span><span class="d">A box around one or more containers</span></li>
+        <li class="step" data-action="node" style="--accent: var(--hw-line)"><span class="t">Node</span><span class="d">A machine that runs pods</span></li>
+        <li class="step" data-action="cluster" style="--accent: var(--muted)"><span class="t">Cluster</span><span class="d">Many nodes, run together by a control plane</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 10. Definition: pods -->
+  <section class="slide">
+    <div class="definition">
+      <div class="term">Zooming in on</div>
+      <h1>Pods</h1>
+      <blockquote class="step">Kubernetes' own way of running containers. A pod is the <b>smallest deployable unit</b> in Kubernetes, and represents a <b>single instance</b> of an application.</blockquote>
+      <p class="step more">A container is a single unit. A pod is a <b>box that can hold one or more containers</b>, so you can manage them as one.</p>
+      <p class="step more">The pod gets <b>one IP address</b>. The containers inside it talk to each other via <code>localhost</code>.</p>
+    </div>
+  </section>
+
+  <!-- 11. Pod YAML (walkthrough) -->
+  <section class="slide">
+    <div class="kicker">A simple example</div>
+    <h2>Describing a pod in YAML</h2>
+    <div class="cols wide-left" style="align-items:start">
+<pre><span class="ln" data-g="kind"><span class="c-key">apiVersion:</span> <span class="c-str">v1</span></span><span class="ln" data-g="kind"><span class="c-key">kind:</span> <span class="c-str">Pod</span></span><span class="ln" data-g="meta"><span class="c-key">metadata:</span></span><span class="ln" data-g="meta">  <span class="c-key">name:</span> <span class="c-str">my-pod</span></span><span class="ln" data-g="spec"><span class="c-key">spec:</span></span><span class="ln" data-g="cont">  <span class="c-key">containers:</span></span><span class="ln" data-g="cont">    - <span class="c-key">name:</span> <span class="c-str">web</span></span><span class="ln" data-g="image">      <span class="c-key">image:</span> <span class="c-str">nginx</span></span><span class="ln" data-g="ports">      <span class="c-key">ports:</span></span><span class="ln" data-g="ports">        - <span class="c-key">containerPort:</span> <span class="c-str">80</span></span></pre>
+      <ul class="rows inline">
+        <li class="step" data-focus='.ln[data-g="kind"]' style="--accent: var(--hw-line)"><span class="t">kind</span><span class="d">What to create: a Pod</span></li>
+        <li class="step" data-focus='.ln[data-g="meta"]' style="--accent: var(--os-line)"><span class="t">metadata</span><span class="d">Its name: my-pod</span></li>
+        <li class="step" data-focus='.ln[data-g="spec"]' style="--accent: var(--hyper-line)"><span class="t">spec</span><span class="d">What you want inside it</span></li>
+        <li class="step" data-focus='.ln[data-g="cont"]' style="--accent: var(--lib-line)"><span class="t">containers</span><span class="d">The container(s) in this pod</span></li>
+        <li class="step" data-focus='.ln[data-g="image"]' style="--accent: var(--app-line)"><span class="t">image</span><span class="d">The image to run, like <code>docker run nginx</code></span></li>
+        <li class="step" data-focus='.ln[data-g="ports"]' style="--accent: var(--gold)"><span class="t">ports</span><span class="d">The port the app listens on</span></li>
+      </ul>
+    </div>
+    <div class="callout">A pod is a Kubernetes <b>object</b>. To create one, you declare what it needs in YAML, then run <code>kubectl apply -f pod.yaml</code>.</div>
+  </section>
+
+  <!-- 12. Definition: nodes -->
+  <section class="slide">
+    <div class="definition">
+      <div class="term">Zooming in on</div>
+      <h1>Nodes</h1>
+      <blockquote class="step">A node is just a <b>machine</b>, physical or virtual, that <b>hosts pods</b>.</blockquote>
+      <p class="step more">One node can run <b>many pods</b>. Every pod runs on a node.</p>
+      <p class="step more">Nodes together form a <b>cluster</b>: cluster → nodes → pods → containers.</p>
+    </div>
+  </section>
+
+  <!-- 13. Worker node (walkthrough) -->
+  <section class="slide">
+    <div class="kicker">The muscle</div>
+    <h2>Inside a worker node</h2>
+    <div class="cols wide-left">
+      <div class="diagram">
+        <div class="big-box node-box">
+          <span class="wrap-lbl">⚙️ Worker node</span>
+          <div class="comps">
+            <div class="comp kubelet">kubelet<small>the agent</small></div>
+            <div class="comp proxy">kube-proxy<small>the networking</small></div>
+            <div class="comp runtime wide">Container runtime<small>for example containerd or Docker</small></div>
+            <div class="comp pods-comp wide">Pods<small>📦 📦 📦</small></div>
+          </div>
+        </div>
+      </div>
+      <ul class="rows">
+        <li class="step" data-focus=".kubelet" style="--accent: var(--hw-line)"><span class="t">kubelet</span><span class="d">Takes orders from the control plane, and makes sure the pods run as expected</span></li>
+        <li class="step" data-focus=".proxy" style="--accent: var(--hw-line)"><span class="t">kube-proxy</span><span class="d">Handles the networking, so pods can reach each other</span></li>
+        <li class="step" data-focus=".runtime" style="--accent: var(--hw-line)"><span class="t">Container runtime</span><span class="d">The software that actually runs the containers</span></li>
+        <li class="step" data-focus=".pods-comp" style="--accent: var(--hyper-line)"><span class="t">Pods</span><span class="d">Your containers, running on this node</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 14. The cluster (walkthrough) -->
+  <section class="slide">
+    <div class="kicker">The big picture</div>
+    <h2>A Kubernetes cluster</h2>
+    <div class="cols wide-left">
+      <div class="diagram">
+        <div class="cluster">
+          <span class="lbl">Cluster</span>
+          <div class="cp">🧠 Control plane</div>
+          <div class="nodes">
+            <div class="node"><span class="t">Worker node 1</span><div class="pods"><div class="mini-pod">📦</div><div class="mini-pod">📦</div><div class="mini-pod">📦</div></div></div>
+            <div class="node"><span class="t">Worker node 2</span><div class="pods"><div class="mini-pod">📦</div><div class="mini-pod">📦</div></div></div>
+            <div class="node"><span class="t">Worker node 3</span><div class="pods"><div class="mini-pod">📦</div><div class="mini-pod">📦</div><div class="mini-pod">📦</div></div></div>
+          </div>
+        </div>
+      </div>
+      <ul class="rows">
+        <li class="step" data-focus=".cluster" style="--accent: var(--muted)"><span class="t">Cluster</span><span class="d">A group of machines working together</span></li>
+        <li class="step" data-focus=".node" style="--accent: var(--hw-line)"><span class="t">Worker nodes</span><span class="d">The machines that run your pods</span></li>
+        <li class="step" data-focus=".mini-pod" style="--accent: var(--hyper-line)"><span class="t">Pods</span><span class="d">Spread over the worker nodes</span></li>
+        <li class="step" data-focus=".cp" style="--accent: var(--os-line)"><span class="t">Control plane</span><span class="d">The brain: decides which pod runs on which node, and gives the orders</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 15. Control plane (walkthrough) -->
+  <section class="slide">
+    <div class="kicker">The brain</div>
+    <h2>Inside the control plane</h2>
+    <div class="cols wide-left">
+      <div class="diagram">
+        <div class="big-box cp-box">
+          <span class="wrap-lbl">🧠 Control plane</span>
+          <div class="comps">
+            <div class="comp api">API server<small>the front door</small></div>
+            <div class="comp sched">Scheduler<small>picks a node</small></div>
+            <div class="comp ctrl">Controller manager<small>keeps things on plan</small></div>
+            <div class="comp etcd">etcd<small>the memory</small></div>
+          </div>
+        </div>
+      </div>
+      <ul class="rows">
+        <li class="step" data-focus=".api" style="--accent: var(--os-line)"><span class="t">API server</span><span class="d">Receives your commands. Everything talks to it.</span></li>
+        <li class="step" data-focus=".sched" style="--accent: var(--os-line)"><span class="t">Scheduler</span><span class="d">Decides which worker node runs each pod</span></li>
+        <li class="step" data-focus=".ctrl" style="--accent: var(--os-line)"><span class="t">Controller manager</span><span class="d">Watches the cluster and fixes differences from the desired state</span></li>
+        <li class="step" data-focus=".etcd" style="--accent: var(--os-line)"><span class="t">etcd</span><span class="d">Stores the whole state of the cluster</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 16. A node fails (interactive) -->
+  <section class="slide">
+    <div class="kicker">What if...</div>
+    <h2>A whole worker node fails?</h2>
+    <div class="cols" style="grid-template-columns: 1.15fr 1fr; gap: 44px;">
+      <div class="diagram">
+        <div class="cluster">
+          <span class="lbl">Cluster</span>
+          <div class="cp">🧠 Control plane</div>
+          <div class="nodes">
+            <div class="node"><span class="t">Node 1</span><div class="pods"><div class="mini-pod">📦</div><div class="mini-pod">📦</div><div class="mini-pod moved">📦</div></div></div>
+            <div class="node down"><span class="t">Node 2</span><div class="pods"><div class="mini-pod">📦</div><div class="mini-pod">📦</div></div><span class="down-tag">❌ DOWN</span></div>
+            <div class="node"><span class="t">Node 3</span><div class="pods"><div class="mini-pod">📦</div><div class="mini-pod">📦</div><div class="mini-pod moved">📦</div></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="story">
+        <p>Your app runs on three worker nodes.</p>
+        <p class="step" data-action="fail">Suddenly, node 2 goes down. 💥</p>
+        <p class="step" data-action="move">The control plane notices, and starts its pods again on the healthy nodes. ✨</p>
+      </div>
+    </div>
+    <div class="callout step">One broken machine doesn't take your app down: Kubernetes is <b>fault tolerant</b> and <b>highly available</b>.</div>
+  </section>
+
+  <!-- 17. Deployments (walkthrough) -->
+  <section class="slide">
+    <div class="kicker">Keeping copies running</div>
+    <h2>Deployments</h2>
+    <div class="cols wide-left" style="align-items:start">
+<pre><span class="ln" data-g="kind"><span class="c-key">apiVersion:</span> <span class="c-str">apps/v1</span></span><span class="ln" data-g="kind"><span class="c-key">kind:</span> <span class="c-str">Deployment</span></span><span class="ln"><span class="c-key">metadata:</span></span><span class="ln">  <span class="c-key">name:</span> <span class="c-str">web</span></span><span class="ln"><span class="c-key">spec:</span></span><span class="ln" data-g="rep">  <span class="c-key">replicas:</span> <span class="c-str">3</span></span><span class="ln" data-g="tpl">  <span class="c-key">template:</span></span><span class="ln" data-g="tpl">    <span class="c-key">spec:</span></span><span class="ln" data-g="tpl">      <span class="c-key">containers:</span></span><span class="ln" data-g="tpl">        - <span class="c-key">name:</span> <span class="c-str">web</span></span><span class="ln" data-g="img">          <span class="c-key">image:</span> <span class="c-str">my-app:v2</span></span></pre>
+      <ul class="rows">
+        <li class="step" data-focus='.ln[data-g="kind"]' style="--accent: var(--hw-line)"><span class="t">kind: Deployment</span><span class="d">Manages a set of identical pods for you</span></li>
+        <li class="step" data-focus='.ln[data-g="rep"]' style="--accent: var(--green)"><span class="t">replicas: 3</span><span class="d">Always keep 3 copies running. One dies? A new one starts.</span></li>
+        <li class="step" data-focus='.ln[data-g="tpl"]' style="--accent: var(--lib-line)"><span class="t">template</span><span class="d">What each pod looks like, just like the pod file</span></li>
+        <li class="step" data-focus='.ln[data-g="img"]' style="--accent: var(--app-line)"><span class="t">image: my-app:v2</span><span class="d">Change the version and Kubernetes replaces the pods one by one: a <b>rollout</b>. Something wrong? <b>Roll back</b>.</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 18. Services -->
+  <section class="slide">
+    <div class="kicker">Finding your pods</div>
+    <h2>Services</h2>
+    <p class="lead" style="font-size: 26px;">Pods come and go, so their addresses keep changing. A <b>service</b> gives them <b>one stable address</b>.</p>
+    <div class="flow">
+      <div class="actor"><span class="em">👩‍💻</span>Users</div>
+      <div class="arrow step"><div class="line"></div></div>
+      <div class="svc step" data-step="1"><span class="em">🔀</span>Service<small>stable address: web</small></div>
+      <div class="fan step">
+        <div class="row"><div class="arrow"><div class="line"></div></div><div class="pod">📦</div><span class="lbl">Pod 1</span></div>
+        <div class="row"><div class="arrow"><div class="line"></div></div><div class="pod">📦</div><span class="lbl">Pod 2</span></div>
+        <div class="row"><div class="arrow"><div class="line"></div></div><div class="pod">📦</div><span class="lbl">Pod 3</span></div>
+      </div>
+    </div>
+    <div class="callout step">The service also <b>spreads the traffic</b> over the pods: load balancing.</div>
+  </section>
+
+  <!-- 19. Building blocks recap -->
+  <section class="slide">
+    <div class="kicker">Recap</div>
+    <h2>The building blocks</h2>
+    <div class="cols three equal">
+      <div class="card sm step"><h3>📦 Pod</h3><p>The smallest unit: wraps your container(s)</p></div>
+      <div class="card sm step"><h3>⚙️ Node</h3><p>A machine that hosts pods</p></div>
+      <div class="card sm step"><h3>🗺️ Cluster</h3><p>A group of nodes working together</p></div>
+      <div class="card sm step"><h3>🧠 Control plane</h3><p>The brain: decides and gives orders</p></div>
+      <div class="card sm step"><h3>🔁 Deployment</h3><p>Keeps the right number of pod copies running</p></div>
+      <div class="card sm step"><h3>🔀 Service</h3><p>One stable address in front of your pods</p></div>
+    </div>
+  </section>
+
+  <!-- 20. Docker vs Kubernetes -->
+  <section class="slide">
+    <div class="kicker">Side by side</div>
+    <h2>Docker vs Kubernetes</h2>
+    <table>
+      <tr><th></th><th>🐳 Docker</th><th>☸️ Kubernetes</th></tr>
+      <tr class="step"><td>Main job</td><td>Builds images and runs containers</td><td>Runs containers at scale</td></tr>
+      <tr class="step"><td>How</td><td>You give the commands, by hand</td><td>Automatic, from your desired state</td></tr>
+      <tr class="step"><td>Size</td><td>A few containers, one machine</td><td>Thousands, across many machines</td></tr>
+      <tr class="step"><td>Something crashes</td><td>You restart it</td><td>It heals itself</td></tr>
+    </table>
+    <div class="callout step">Not either/or: <b>Docker builds the images, Kubernetes runs them</b> in large numbers.</div>
+  </section>
+
+  <!-- 21. docker -> kubectl -->
+  <section class="slide">
+    <div class="kicker">Cheat sheet</div>
+    <h2>From <span>docker</span> to <span>kubectl</span></h2>
+    <table>
+      <tr><th>Docker</th><th>Kubernetes</th><th>What it does</th></tr>
+      <tr class="step"><td><code>docker run</code></td><td><code>kubectl apply -f app.yaml</code></td><td>start what's in the file</td></tr>
+      <tr class="step"><td><code>docker ps</code></td><td><code>kubectl get pods</code></td><td>list what's running</td></tr>
+      <tr class="step"><td><code>docker logs</code></td><td><code>kubectl logs my-pod</code></td><td>what it wrote</td></tr>
+      <tr class="step"><td><code>docker rm</code></td><td><code>kubectl delete pod my-pod</code></td><td>remove it</td></tr>
+      <tr class="step"><td class="muted">(none)</td><td><code>kubectl get nodes</code></td><td>list the machines in the cluster</td></tr>
+    </table>
+    <div class="callout step"><code>kubectl</code> talks to the <b>API server</b> in the control plane.</div>
+  </section>
+
+  <!-- 22. Wrap-up -->
+  <section class="slide">
+    <div class="kicker">Wrap-up</div>
+    <h2>What to remember</h2>
+    <ul class="rows big">
+      <li class="step" style="--accent: var(--os-line)"><span class="t">Docker packages and runs containers</span><span class="d">Great for a few containers on one machine</span></li>
+      <li class="step" style="--accent: var(--hyper-line)"><span class="t">Kubernetes orchestrates them at scale</span><span class="d">Starts, connects, watches, scales and balances them</span></li>
+      <li class="step" style="--accent: var(--gold)"><span class="t">You describe what you want</span><span class="d">Kubernetes figures out how, and keeps it that way</span></li>
+      <li class="step" style="--accent: var(--hw-line)"><span class="t">Container → pod → node → cluster</span><span class="d">From one little box to a whole group of machines</span></li>
+      <li class="step" style="--accent: var(--app-line)"><span class="t">Deployments and services</span><span class="d">Keep copies running, and give them a stable address</span></li>
+    </ul>
+  </section>
+
+  <!-- 23. Questions -->
+  <section class="slide center-slide">
+    <canvas class="big-ghost" width="16" height="16"></canvas>
+    <h1>Questions?</h1>
+    <p class="sub">Boo-ker is listening 👀</p>
+  </section>
+
+  <canvas id="booker" width="16" height="16"></canvas>
+  <div id="progress"></div>
+  <div id="counter"></div>
+  <div id="hint">→ / space / click for the next step · ← back · F full screen</div>
+</div>
+
+<script>
+  // Build the fleet of servers for the 50,000-containers slide: 12 servers with 6 containers each.
+  // Some containers ("server-container") are the ones that crash.
+  const CRASHING = new Set(["1-2", "4-0", "6-5", "9-3", "10-1"]);
+  const fleet = document.getElementById("fleet");
+  for (let s = 0; s < 12; s++) {
+    const srv = document.createElement("div");
+    srv.className = "srv" + (s === 0 ? " first" : "");
+    srv.style.setProperty("--d", `${s * 0.05}s`);
+    for (let c = 0; c < 6; c++) {
+      const ct = document.createElement("div");
+      ct.className = "ct" + (s === 0 && c === 0 ? " first" : "") + (CRASHING.has(`${s}-${c}`) ? " bad" : "");
+      ct.style.setProperty("--d", `${s * 0.05}s`);
+      srv.appendChild(ct);
+    }
+    fleet.appendChild(srv);
+  }
+
+  // Network lines between some of the servers (drawn behind them)
+  const LINKS = [[0, 1], [1, 2], [2, 3], [0, 4], [4, 5], [5, 6], [6, 7], [3, 7], [4, 8], [5, 9], [8, 9], [9, 10], [10, 11], [7, 11], [1, 6], [2, 5]];
+  function drawNet() {
+    const net = document.getElementById("net");
+    const servers = [...fleet.children];
+    const center = (el) => [el.offsetLeft + el.offsetWidth / 2, el.offsetTop + el.offsetHeight / 2];
+    net.innerHTML = LINKS.map(([a, b]) => {
+      const [x1, y1] = center(servers[a]), [x2, y2] = center(servers[b]);
+      return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`;
+    }).join("");
+  }
+
+  const slides = [...document.querySelectorAll(".slide")];
+  let current = 0;
+
+  // Open with ?all in the address to see every step at once (handy for sharing or printing)
+  const ALL = new URLSearchParams(location.search).has("all");
+
+  // Steps on a slide, in order. data-step="n" makes an element appear together with step n.
+  const stepsOf = (s) => [...s.querySelectorAll(".step:not([data-step])")];
+  const shownCount = (s) => stepsOf(s).filter((el) => el.classList.contains("shown")).length;
+
+  function setSteps(s, count) {
+    const steps = stepsOf(s);
+    steps.forEach((el, i) => el.classList.toggle("shown", i < count));
+    s.querySelectorAll(".step[data-step]").forEach((el) => {
+      el.classList.toggle("shown", count >= Number(el.dataset.step));
+    });
+
+    // Actions tied to a step (data-action="crash" adds the class act-crash to the slide)
+    [...s.classList].filter((c) => c.startsWith("act-")).forEach((c) => s.classList.remove(c));
+    steps.slice(0, count).forEach((el) => el.dataset.action && s.classList.add(`act-${el.dataset.action}`));
+
+    // Walkthroughs: light up the diagram part or code line of the latest step
+    s.querySelectorAll(".focus").forEach((el) => el.classList.remove("focus"));
+    const latest = steps.slice(0, count).reverse().find((el) => el.dataset.focus);
+    const walking = Boolean(latest) && !ALL;
+    s.querySelector("pre")?.classList.toggle("walking", walking);
+    if (walking) s.querySelectorAll(latest.dataset.focus).forEach((el) => el.classList.add("focus"));
+
+    // Remember slide and step in the address (#7.3 = slide 7, step 3), so a refresh keeps your place
+    history.replaceState(null, "", `${location.search}#${current + 1}${count ? "." + count : ""}`);
+  }
+
+  function show(i, revealAll = ALL, stepCount = 0) {
+    current = Math.max(0, Math.min(slides.length - 1, i));
+    slides.forEach((s, j) => s.classList.toggle("active", j === current));
+    const s = slides[current];
+    document.getElementById("counter").textContent = `${current + 1} / ${slides.length}`;
+    document.getElementById("progress").style.width = `${((current + 1) / slides.length) * 100}%`;
+    setSteps(s, revealAll ? stepsOf(s).length : Math.min(stepCount, stepsOf(s).length));
+  }
+
+  function next() {
+    const s = slides[current];
+    const n = shownCount(s);
+    if (n < stepsOf(s).length) setSteps(s, n + 1);
+    else if (current < slides.length - 1) show(current + 1);
+  }
+
+  function prev() {
+    const s = slides[current];
+    const n = shownCount(s);
+    if (n > 0) setSteps(s, n - 1);
+    else if (current > 0) show(current - 1, true);
+  }
+
+  function fit() {
+    const scale = Math.min(innerWidth / 1280, innerHeight / 720);
+    document.getElementById("deck").style.setProperty("--scale", scale);
+  }
+
+  document.addEventListener("keydown", (e) => {
+    if (["ArrowRight", "ArrowDown", "PageDown", " ", "Enter"].includes(e.key)) { e.preventDefault(); next(); }
+    if (["ArrowLeft", "ArrowUp", "PageUp", "Backspace"].includes(e.key)) { e.preventDefault(); prev(); }
+    if (e.key === "Home") show(0);
+    if (e.key === "End") show(slides.length - 1);
+    if (e.key === "f" || e.key === "F") {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else document.documentElement.requestFullscreen();
+    }
+  });
+
+  // Click the right half for the next step, the left half to go back
+  document.addEventListener("click", (e) => (e.clientX > innerWidth / 2 ? next() : prev()));
+
+  setTimeout(() => (document.getElementById("hint").style.opacity = 0), 7000);
+
+  // Boo-ker, the little pixel ghost from the game
+  const GHOST = [
+    "................", ".....kkkkkk.....", "....kwwwwwwk....", "...kwwwwwwwwk...",
+    "..kwwwwwwwwwwk..", "..kweewwwweewk..", "..kweewwwweewk..", "..kwpwwwwwwpwk..",
+    "..kwwwwkkwwwwk..", "..kwwwwwwwwwwk..", "..kwwwwwwwwwgk..", "..kwwwwwwwwggk..",
+    "..kwwgwwwgwwgk..", "..kwk.kwwk.kwk..", "...k...kk...k...", "................",
+  ];
+  const PAL = { k: "#1a1022", w: "#f4f0ff", g: "#b9b0e0", e: "#1a1022", p: "#ff9ad5" };
+  document.querySelectorAll("#booker, .big-ghost").forEach((canvas) => {
+    const ghost = canvas.getContext("2d");
+    GHOST.forEach((row, y) => [...row].forEach((ch, x) => {
+      if (ch !== ".") { ghost.fillStyle = PAL[ch]; ghost.fillRect(x, y, 1, 1); }
+    }));
+  });
+
+  addEventListener("resize", fit);
+  fit();
+  drawNet();
+  const [, slideNo = "1", stepNo = "0"] = location.hash.match(/^#(\d+)(?:\.(\d+))?/) || [];
+  show(Number(slideNo) - 1, ALL, Number(stepNo));
+</script>
+</body>
+</html>
