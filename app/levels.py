@@ -16,6 +16,7 @@ CODES = {
     "cellar": "COBWEB-2290",
     "attic": "MOONLIT-5173",
     "dungeon": "CHAINS-6048",
+    "demon": "INFERNO-6666",   # printed by `manor demon`, the pods in Kubernetes Hell
 }
 
 LEVELS = [
@@ -155,10 +156,122 @@ LEVELS = [
 ]
 
 
-def public_levels():
+
+# Kubernetes Hell (/hell): real kubectl commands against a minikube cluster in the Codespace.
+# The demons are pods from k8s/demons.yaml, running this same image with `manor demon`.
+HELL_LEVELS = [
+    {
+        "id": 1, "name": "The Gates", "emoji": "🔥",
+        "story": "Boo-ker grew little horns. \"Welcome to Kubernetes Hell! Down here, nobody starts "
+                 "containers by hand. First, open the gates: start your own cluster.\"",
+        "mission": "Start a mini Kubernetes cluster in the terminal (this takes a minute or two):<br>"
+                   "`minikube start`<br>Then list the machines (nodes) in your cluster:<br>"
+                   "`kubectl get nodes`<br>What is the NAME of your node?",
+        "hints": [
+            "minikube makes a tiny cluster with just one node, right inside your Codespace.",
+            "Look at the NAME column. There is only one row.",
+        ],
+        "help": "kubectl get --help",
+        "answers": ["minikube"],
+        "learned": "Your cluster has one <b>node</b>: a machine that runs pods. A real cluster has many nodes, "
+                   "plus a control plane that decides what runs where.",
+    },
+    {
+        "id": 2, "name": "The Burning Archive", "emoji": "📜",
+        "story": "Among the burning books lies a scroll. It's a YAML file, and it summons demons.",
+        "mission": "Summon the demons from the scroll:<br>`kubectl apply -f k8s/demons.yaml`<br>"
+                   "Then look at your pods:<br>`kubectl get pods`<br>"
+                   "Wait until they're ready (run it again if needed). What does their STATUS say?",
+        "hints": [
+            "`apply -f` sends a YAML file to the cluster. You describe what you want, Kubernetes makes it happen.",
+            "Look at the STATUS column. Still starting? Wait a few seconds and run `kubectl get pods` again.",
+        ],
+        "help": "kubectl apply --help",
+        "answers": ["running"],
+        "learned": "You didn't start a single container yourself. The scroll describes a <b>Deployment</b> with "
+                   "3 replicas, and Kubernetes created the 3 pods for you.",
+    },
+    {
+        "id": 3, "name": "The Bone Pit", "emoji": "🦴",
+        "story": "One demon looks weak. Throw it into the bone pit... and see what happens.",
+        "mission": "Banish one demon. Copy one pod NAME from `kubectl get pods` and run:<br>"
+                   "`kubectl delete pod <name>`<br>Then look again with `kubectl get pods`. "
+                   "How many demons are there now?",
+        "hints": [
+            "Count the rows. Also look at the AGE column: is one of them brand new?",
+            "You deleted one... but did the number actually go down?",
+        ],
+        "help": "kubectl delete --help",
+        "answers": ["3", "three"],
+        "learned": "Kubernetes noticed a pod was missing and started a new one right away: <b>self-healing</b>. "
+                   "The Deployment wants 3, so there will always be 3.",
+    },
+    {
+        "id": 4, "name": "The Furnace", "emoji": "🌋",
+        "story": "Down the hatch, the furnace roars. Every demon whispers a secret into the flames.",
+        "mission": "Read what one of your demons wrote. Copy a pod NAME and run:<br>"
+                   "`kubectl logs <name>`<br>Type the code you see.",
+        "hints": [
+            "It works just like `docker logs`, but for a pod.",
+            "A code is a word, a dash and four numbers.",
+        ],
+        "help": "kubectl logs --help",
+        "answers": [CODES["demon"]],
+        "learned": "`kubectl logs` works just like `docker logs`. Every pod has its own logs, "
+                   "and the demon even told you its own pod name.",
+    },
+    {
+        "id": 5, "name": "The Tower", "emoji": "🗼",
+        "story": "At the top of the tower, a horn calls for an army. Three demons won't be enough.",
+        "mission": "Scale your demons up to 6:<br>`kubectl scale deployment demons --replicas=6`<br>"
+                   "Then check with `kubectl get pods`. How many demons are there now?",
+        "hints": [
+            "`--replicas` is the number of copies you want.",
+            "Count the rows. Some may still be starting, that's fine.",
+        ],
+        "help": "kubectl scale --help",
+        "answers": ["6", "six"],
+        "learned": "One command, and Kubernetes started 3 extra pods. That's <b>scaling</b>: "
+                   "when traffic grows, you simply ask for more replicas.",
+    },
+    {
+        "id": 6, "name": "The Skull Altar", "emoji": "💀",
+        "story": "The skull altar sees everything about your deployment.",
+        "mission": "Look at your deployment:<br>`kubectl get deployments`<br>What does the READY column say?",
+        "hints": [
+            "A deployment manages your pods and keeps the right number running.",
+            "It's two numbers with a slash: ready / wanted.",
+        ],
+        "help": "kubectl get --help",
+        "answers": ["6/6"],
+        "learned": "READY 6/6 means: 6 pods wanted, 6 running. If one dies, it's 5/6 for a moment, "
+                   "and then Kubernetes brings it back to 6/6.",
+    },
+    {
+        "id": 7, "name": "The Escape", "emoji": "🚪",
+        "story": "The gate out of hell glows. To leave, send the demons back where they came from.",
+        "mission": "Remove everything the scroll created:<br>`kubectl delete -f k8s/demons.yaml`<br>"
+                   "Check with `kubectl get pods` that they're gone. Then answer: "
+                   "which command lists your pods? (three words)",
+        "hints": [
+            "It's the command you've used most in hell.",
+            "`kubectl` + a verb + what you want to see.",
+        ],
+        "help": "kubectl --help",
+        "answers": ["kubectl get pods", "kubectl get pod", "kubectl get po"],
+        "learned": "You escaped Kubernetes Hell! You started a cluster, created a Deployment from YAML, "
+                   "watched it heal itself, read logs, scaled up and cleaned up. "
+                   "(Stop the cluster with `minikube stop` when you're done.)",
+    },
+]
+
+WORLDS = {"manor": LEVELS, "hell": HELL_LEVELS}
+
+
+def public_levels(world: str = "manor"):
     """Levels as sent to the browser: no answers, {IMAGE} filled in."""
     out = []
-    for lvl in LEVELS:
+    for lvl in WORLDS.get(world, LEVELS):
         item = {k: v for k, v in lvl.items() if k not in ("answers", "prefix")}
         item["mission"] = lvl["mission"].replace("{IMAGE}", IMAGE)
         item["hints"] = [h.replace("{IMAGE}", IMAGE) for h in lvl["hints"]]
@@ -171,8 +284,8 @@ def _norm(text: str) -> str:
     return re.sub(r"\s+", " ", text.strip().lower().strip("`\"'"))
 
 
-def check_answer(level_id: int, answer: str) -> bool:
-    lvl = next((l for l in LEVELS if l["id"] == level_id), None)
+def check_answer(level_id: int, answer: str, world: str = "manor") -> bool:
+    lvl = next((l for l in WORLDS.get(world, LEVELS) if l["id"] == level_id), None)
     if not lvl:
         return False
     given = _norm(answer)

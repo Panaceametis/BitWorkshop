@@ -17,16 +17,17 @@ app = FastAPI(title="Haunted Container Manor")
 class Attempt(BaseModel):
     level: int
     answer: str
+    world: str = "manor"
 
 
 @app.get("/api/levels")
-def levels():
-    return public_levels()
+def levels(world: str = "manor"):
+    return public_levels(world)
 
 
 @app.post("/api/check")
 def check(attempt: Attempt):
-    return {"correct": check_answer(attempt.level, attempt.answer)}
+    return {"correct": check_answer(attempt.level, attempt.answer, attempt.world)}
 
 
 @app.get("/attic")
@@ -50,3 +51,9 @@ app.mount("/static", StaticFiles(directory=STATIC), name="static")
 @app.get("/")
 def index():
     return FileResponse(STATIC / "index.html")
+
+
+@app.get("/hell")
+def hell():
+    """Part 2: Kubernetes Hell, the same game engine in a different world."""
+    return FileResponse(STATIC / "hell.html")

@@ -1,5 +1,6 @@
 """The `manor` command baked into the image: python -m app.manor <room>."""
 import signal
+import socket
 import sys
 import time
 from pathlib import Path
@@ -43,7 +44,17 @@ def library():
         time.sleep(3600)
 
 
-ROOMS = {"foyer": foyer, "library": library}
+def demon():
+    """Kubernetes Hell: each pod from k8s/demons.yaml runs this and tells you its secret."""
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
+    print(f"[demon] I rise from the flames as {socket.gethostname()}.")
+    print(f"[demon] My secret, whispered into the furnace: {CODES['demon']}")
+    print("[demon] ...crackle...", flush=True)
+    while True:
+        time.sleep(3600)
+
+
+ROOMS = {"foyer": foyer, "library": library, "demon": demon}
 
 if __name__ == "__main__":
     room = sys.argv[1] if len(sys.argv) > 1 else ""
