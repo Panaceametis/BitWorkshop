@@ -38,20 +38,6 @@ it's already in your Codespace.
 
 ---
 
-## 🧙 For the facilitator
-
-### One-time setup (do this before the workshop)
-1. Push this folder to a **public** GitHub repo.
-2. The `publish-image` GitHub Action builds the image and pushes it to
-   `ghcr.io/<your-github-username>/haunted-manor:latest`. Check the **Actions** tab to see it finish.
-3. Make the image public: GitHub profile → **Packages** → `haunted-manor` → **Package settings** →
-   **Change visibility → Public**. Otherwise trainees get "denied" when they pull it.
-4. Check that the image name in the trainee steps above matches yours (`ghcr.io/<username>/haunted-manor`).
-5. Do a dry run: open your own Codespace and play through all 7 rooms.
-
-Ask trainees to create a GitHub account before the workshop. Codespaces is free for personal
-accounts (about 60 hours a month on a 2-core machine).
-
 ### Room overview
 
 Baby steps: every room teaches one or two basic commands. (The answers are kept out of this repo.)
