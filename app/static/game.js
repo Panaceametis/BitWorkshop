@@ -60,7 +60,7 @@ const UNLOCKED = HELL ? {
   4: "The tower stairs crackle. The way up is open...",
   5: "A burning stairway leads down to the skull altar...",
   6: "A cool breeze blows from the gate in the ash fields...",
-  7: "The gate of hell opens. Walk through it to escape!",
+  7: "The gate of hell opens... but something HUGE is waiting there. Walk through, if you dare.",
 } : {
   1: "*click* The door to the library swings open...",
   2: "You hear scratching from the crypt in the graveyard...",
@@ -242,7 +242,61 @@ const BAT = [
 const BAT_PAL = { k: "#0d0202", b: "#3a0a0a", e: "#ff3a1a", w: "#6a1010" };
 
 // Burning skeletons: the damned, standing in flames (decoration, you can walk past them)
-const SOULS = [{ x: 5, y: 11 }, { x: 15, y: 9 }, { x: 12, y: 13 }, { x: 3, y: 4 }];
+const SOULS = [{ x: 5, y: 11 }, { x: 17, y: 12 }, { x: 8, y: 13 }, { x: 3, y: 4 }];
+
+// In hell, two gravestones in the ash fields make room for the summoning circle
+if (HELL) for (const [x, y] of [[13, 10], [13, 12]]) MAP[y] = MAP[y].slice(0, x) + "," + MAP[y].slice(x + 1);
+
+/* The summoning circle: a pentagram in the ash fields that acts out each kubectl trial.
+   Six spots on the ring; 3 demons stand on 0, 2 and 4, an army of 6 fills them all. */
+const CIRCLE = { cx: 216, cy: 184, rx: 30, ry: 14 };
+const RING = [0, 1, 2, 3, 4, 5].map((i) => {
+  const a = (i * Math.PI) / 3 - Math.PI / 2;
+  return [Math.round(CIRCLE.cx + CIRCLE.rx * Math.cos(a)) - 8, Math.round(CIRCLE.cy + CIRCLE.ry * Math.sin(a)) - 14];
+});
+// What happens in the circle after each trial (played when you close the dialog)
+const CIRCLE_EVENTS = {
+  2: { kind: "rise", idx: [0, 2, 4], msg: "Three demons rise in the summoning circle! (your 3 pods)" },
+  3: { kind: "respawn", idx: [2], msg: "A demon burns away... and a new one rises right away. Self-healing!" },
+  5: { kind: "rise", idx: [1, 3, 5], msg: "Three more demons join the army! (6 replicas)" },
+  7: { kind: "vanish", idx: [0, 1, 2, 3, 4, 5], msg: "The demons burn up and vanish. The cluster is clean." },
+};
+const CIRCLE_TIME = { rise: 0.9, respawn: 1.9, vanish: 1.4 };
+
+/* The boss at the gate of hell: THE YAML LORD (20x20), defeated with multiple-choice theory questions */
+const BOSS = [
+  "..hh............hh..",
+  "..hhh..........hhh..",
+  "...hhh........hhh...",
+  "....hkkkkkkkkkkh....",
+  "....krrrrrrrrrrk....",
+  "...krrrrrrrrrrrrk...",
+  "...krRRrrrrrrRRrk...",
+  "...krryyrrrryyrrk...",
+  "...krryyrrrryyrrk...",
+  "...krrrrrRRrrrrrk...",
+  "...krmmmmmmmmmmrk...",
+  "...krmtmtmtmtmtrk...",
+  "...krrmmmmmmmmrrk...",
+  "....krrrrrrrrrrk....",
+  "..kkkRRrrrrrrRRkkk..",
+  ".kRRRRrrrrrrrrRRRRk.",
+  "kRRRRrrrrrrrrrrRRRRk",
+  "kRRRrrrrrrrrrrrrRRRk",
+  "kRRRrrrrrrrrrrrrRRRk",
+  "kkkkkkkkkkkkkkkkkkkk",
+];
+const BOSS_PAL = { k: "#1a0505", r: "#b01e14", R: "#6a0a0a", y: "#ffe14a", h: "#e8dcc0", m: "#2a0505", t: "#ffffff" };
+const BOSS_QUESTIONS = [
+  { q: "What is the smallest deployable unit in Kubernetes?", options: ["A container", "A pod", "A node", "A cluster"], correct: 1 },
+  { q: "What is a node?", options: ["A machine that hosts pods", "A YAML file", "A type of container", "The Kubernetes logo"], correct: 0 },
+  { q: "Which part of the cluster is \"the brain\"?", options: ["A worker node", "The kubelet", "The control plane", "A service"], correct: 2 },
+  { q: "A pod crashes. What does Kubernetes do?", options: ["Nothing", "It emails you", "It starts a new one: self-healing", "It deletes the cluster"], correct: 2 },
+  { q: "Which object keeps 3 copies of your pod running?", options: ["A service", "A deployment", "A node", "An image"], correct: 1 },
+  { q: "What gives your pods one stable address?", options: ["A service", "A pod", "etcd", "A Dockerfile"], correct: 0 },
+  { q: "Docker vs Kubernetes: which is true?", options: ["Kubernetes builds the images", "They do exactly the same", "Docker builds images, Kubernetes runs them at scale", "Docker replaced Kubernetes"], correct: 2 },
+  { q: "You write replicas: 50000 instead of 50,000 docker run commands. What's this approach called?", options: ["Imperative", "Declarative", "Decorative", "Desperate"], correct: 1 },
+];
 
 // The crying nun: she sobs silently in the corner of the library (16 x 20, taller than a tile).
 // Rows 0-11 are her head (they bob while she sobs), rows 12-19 her body.
@@ -495,6 +549,13 @@ function sob() {
 const sfx = {
   scare() { if (soundOn) shriek(); },
   sob() { if (soundOn) sob(); },
+  rumble() { if (!soundOn) return; tone("sawtooth", 55, 35, 1.2, 0.18); noise(0.6, 0.12); },
+  hit() { if (!soundOn) return; tone("square", 260, 60, 0.3, 0.18); noise(0.18, 0.3); },
+  // a deep "HA HA HA HA" that slowly sinks
+  bossLaugh() {
+    if (!soundOn) return;
+    for (let i = 0; i < 6; i++) tone("sawtooth", 150 - i * 9, 110 - i * 9, 0.14, 0.16, i * 0.17);
+  },
   door(dur = 1.3) { if (soundOn) doorCreak(dur); },
   win() { if (!soundOn) return; [523, 659, 784, 1047].forEach((f, i) => tone("square", f, f * 1.01, 0.18, 0.08, i * 0.09)); },
   nope() { if (!soundOn) return; tone("sawtooth", 160, 70, 0.4, 0.15); },
@@ -1042,19 +1103,176 @@ function glow(x, y, r, alpha) {
   ctx.fill();
 }
 
+// A row of flickering flames along the bottom of a 16px-wide spot; size scales their height
+function drawFlames(x, y, now, seed, size = 1) {
+  for (let i = 0; i < 8; i++) {
+    const h = Math.round((4 + ((Math.floor(now / 80) + i * 3 + seed * 5) % 7)) * size);
+    if (h < 1) continue;
+    const fx = x + i * 2;
+    rect(ctx, fx, y + 16 - h, 2, h, "#ff6a1a");
+    rect(ctx, fx, y + 16 - h, 2, 1, "#c8261a");
+    if (h > 6) rect(ctx, fx, y + 18 - h, 1, h - 4, "#ffd23f");
+  }
+}
+
 function drawSouls(now) {
   // A skeleton in the middle of a fire. The flames flicker in front of it, tall and short.
   for (const [k, s] of SOULS.entries()) {
     const x = s.x * T, y = s.y * T;
     sprite(ctx, [...SKELETON_TOP, ...SKELETON_LEGS[0]], SKELETON_PAL, x, y - 3 + (Math.floor(now / 200 + k) % 2));
-    for (let i = 0; i < 8; i++) {
-      const h = 4 + ((Math.floor(now / 80) + i * 3 + k * 5) % 7);
-      const fx = x + i * 2;
-      rect(ctx, fx, y + 16 - h, 2, h, "#ff6a1a");
-      rect(ctx, fx, y + 16 - h, 2, 1, "#c8261a");
-      if (h > 6) rect(ctx, fx, y + 18 - h, 1, h - 4, "#ffd23f");
-    }
+    drawFlames(x, y, now, k);
   }
+}
+
+/* ---------- The summoning circle ---------- */
+let circleAnim = null;     // the animation that is playing: { kind, idx, t0 }
+let pendingCircle = null;  // waits until the dialog closes, so you can see it
+
+function circleCount() {
+  if (solved.has(7)) return 0;
+  if (solved.has(5)) return 6;
+  if (solved.has(2)) return 3;
+  return 0;
+}
+
+function circleLine(x0, y0, x1, y1, color) {
+  const steps = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0));
+  for (let s = 0; s <= steps; s++) {
+    rect(ctx, Math.round(x0 + ((x1 - x0) * s) / steps), Math.round(y0 + ((y1 - y0) * s) / steps), 1, 1, color);
+  }
+}
+
+function drawCircle(now) {
+  const { cx, cy, rx, ry } = CIRCLE;
+  const active = circleCount() > 0 || circleAnim;
+  const color = !active ? "#5a1408" : Math.floor(now / 300) % 2 ? "#ff3a1a" : "#ff6a2a";
+  for (let a = 0; a < 360; a += 3) {
+    const r = (a * Math.PI) / 180;
+    rect(ctx, Math.round(cx + rx * Math.cos(r)), Math.round(cy + ry * Math.sin(r)), 1, 1, color);
+  }
+  // the pentagram: connect every second point of a five-pointed star
+  const pts = [0, 1, 2, 3, 4].map((k) => {
+    const a = -Math.PI / 2 + (k * 2 * Math.PI) / 5;
+    return [cx + (rx - 3) * Math.cos(a), cy + (ry - 2) * Math.sin(a)];
+  });
+  for (let k = 0; k < 5; k++) {
+    const [x0, y0] = pts[k], [x1, y1] = pts[(k + 2) % 5];
+    circleLine(x0, y0, x1, y1, color);
+  }
+
+  // Which demons stand in the circle, and which ones are rising, burning or vanishing
+  const count = circleCount();
+  let spots = count === 6 ? [0, 1, 2, 3, 4, 5] : count === 3 ? [0, 2, 4] : [];
+  let t = 0;
+  if (circleAnim) {
+    t = (now - circleAnim.t0) / 1000;
+    if (t > CIRCLE_TIME[circleAnim.kind]) circleAnim = null;
+    else if (circleAnim.kind === "vanish") spots = circleAnim.idx;
+  }
+  for (const i of spots) {
+    const [x, y] = RING[i];
+    let rise = 1, burn = 0;
+    if (circleAnim && circleAnim.idx.includes(i)) {
+      if (circleAnim.kind === "rise") rise = Math.min(1, t / 0.9);
+      if (circleAnim.kind === "respawn") {
+        if (t < 1) burn = t;
+        else rise = Math.min(1, (t - 1) / 0.9);
+      }
+      if (circleAnim.kind === "vanish") burn = Math.min(1, t / 1.2);
+    }
+    const rows = Math.ceil(16 * rise);
+    const bob = Math.floor(now / 250 + i) % 2;
+    if (burn < 0.6) sprite(ctx, IMP.slice(0, rows), IMP_PAL, x, y + 16 - rows - bob);
+    if (rise < 1) drawFlames(x, y, now, i, 0.6);                   // flames as it rises
+    if (burn > 0) drawFlames(x, y, now, i, 1.6 * Math.sin(Math.PI * burn)); // burning up
+  }
+}
+
+function playCircle() {
+  if (!pendingCircle) return;
+  circleAnim = { ...pendingCircle, t0: performance.now() };
+  toast(pendingCircle.msg);
+  sfx.rumble();
+  pendingCircle = null;
+}
+
+/* ---------- The boss fight: THE YAML LORD ---------- */
+let bossActive = false;
+let bossBeaten = localStorage.getItem(`${WORLD}.boss`) === "1";
+let bossQueue = [];
+let bossHp = 0;
+let bossBusy = false;
+
+function startBoss() {
+  bossActive = true;
+  held.length = 0;
+  bossQueue = [...BOSS_QUESTIONS].sort(() => Math.random() - 0.5);
+  bossHp = BOSS_QUESTIONS.length;
+  $("#boss").classList.remove("hidden");
+  $("#boss-canvas").className = "";
+  renderBossHp();
+  $("#boss-q").textContent = "THE YAML LORD blocks the gate! Answer his questions to defeat him.";
+  $("#boss-options").innerHTML = `<button class="btn boss-opt wide" data-start="1">⚔️ FIGHT!</button>`;
+  $("#boss-feedback").textContent = "";
+  sfx.rumble();
+}
+
+function renderBossHp() {
+  $("#boss-hp").innerHTML = BOSS_QUESTIONS.map((_, i) => `<span class="${i < bossHp ? "" : "gone"}"></span>`).join("");
+}
+
+function nextBossQuestion() {
+  bossBusy = false;
+  const q = bossQueue[0];
+  $("#boss-q").textContent = q.q;
+  $("#boss-options").innerHTML = q.options
+    .map((o, i) => `<button class="btn boss-opt" data-i="${i}">${"ABCD"[i]}. ${o}</button>`).join("");
+  $("#boss-feedback").textContent = "Click an answer, or press 1-4.";
+}
+
+function bossAnswer(i) {
+  if (bossBusy || !bossQueue.length) return;
+  bossBusy = true;
+  const q = bossQueue[0];
+  const buttons = [...document.querySelectorAll(".boss-opt")];
+  const canvas = $("#boss-canvas");
+  canvas.className = "";
+  void canvas.offsetWidth;
+  if (i === q.correct) {
+    buttons[i]?.classList.add("right");
+    bossQueue.shift();
+    bossHp--;
+    renderBossHp();
+    canvas.className = "hit";
+    sfx.hit();
+    $("#boss-feedback").textContent = pick(["Direct hit! 💥", "He staggers!", "Critical hit!", "That one hurt him!"]);
+    if (bossHp === 0) setTimeout(defeatBoss, 700);
+    else setTimeout(nextBossQuestion, 1100);
+  } else {
+    buttons[i]?.classList.add("wrongpick");
+    bossQueue.push(bossQueue.shift()); // ask it again later
+    $("#boss").classList.remove("wrong");
+    void $("#boss").offsetWidth;
+    $("#boss").classList.add("wrong");
+    sfx.bossLaugh();
+    $("#boss-feedback").textContent = "WRONG! The YAML Lord laughs at you. That question will come back...";
+    setTimeout(nextBossQuestion, 1700);
+  }
+}
+
+function defeatBoss() {
+  $("#boss-canvas").className = "dead";
+  $("#boss-q").textContent = "THE YAML LORD IS DEFEATED!";
+  $("#boss-options").innerHTML = "";
+  $("#boss-feedback").textContent = "";
+  sfx.win();
+  setTimeout(() => {
+    $("#boss").classList.add("hidden");
+    bossActive = false;
+    bossBeaten = true;
+    localStorage.setItem(`${WORLD}.boss`, "1");
+    escape();
+  }, 1700);
 }
 
 function drawEyes(n) {
@@ -1098,6 +1316,7 @@ function draw(now) {
     rect(ctx, gx * T + 10, gy * T - 4 + bob, 2, 3, "#e8341a");
   }
 
+  if (HELL) drawCircle(now);
   NPCS.forEach((n) => drawNpc(n, now));
   if (!HELL) drawNun(now);
   if (HELL) drawSouls(now);
@@ -1131,6 +1350,7 @@ function draw(now) {
   for (const l of lights) hole(d, l.x * T + 8, l.y * T + 4, 18 + Math.sin(now / 70 + l.x) * 1.5);
   if (target) hole(d, stationPos[target][0] * T + 8, stationPos[target][1] * T + 6, 22);
   if (HELL) for (const s of SOULS) hole(d, s.x * T + 8, s.y * T + 8, 24 + Math.sin(now / 60 + s.x) * 2);
+  if (HELL) hole(d, CIRCLE.cx, CIRCLE.cy - 4, 44); // the summoning circle is always visible
   ctx.drawImage(dark, 0, 0);
 
   // Golden glow: strongest around candles and pumpkins, softer around Daisy's lantern
@@ -1140,6 +1360,7 @@ function draw(now) {
     for (const l of lights) glow(l.x * T + 8, l.y * T + 3, 26 + Math.sin(now / 70 + l.x) * 2, 0.22);
     if (target) glow(stationPos[target][0] * T + 8, stationPos[target][1] * T + 6, 24, 0.12);
     if (HELL) for (const s of SOULS) glow(s.x * T + 8, s.y * T + 10, 30 + Math.sin(now / 60 + s.x) * 3, 0.3);
+    if (HELL && (circleCount() > 0 || circleAnim)) glow(CIRCLE.cx, CIRCLE.cy, 46 + Math.sin(now / 150) * 4, 0.25);
     ctx.globalCompositeOperation = "source-over";
   }
 
@@ -1235,7 +1456,7 @@ function update(dt, now) {
       player.py = player.fy + (player.y - player.fy) * player.t;
     }
   }
-  if (!player.moving && !dialogLevel && started && held.length) {
+  if (!player.moving && !dialogLevel && !bossActive && started && held.length) {
     const [dx, dy] = DIRS[held[held.length - 1]];
     tryMove(dx, dy);
   }
@@ -1324,6 +1545,7 @@ function scheduleRandomScare() {
 }
 
 function escape() {
+  if (HELL && !bossBeaten) return startBoss(); // the YAML Lord guards the gate
   escaped = true;
   sfx.win();
   updateHud();
@@ -1348,6 +1570,7 @@ function closeDialog() {
   clearInterval(typer);
   dialogLevel = null;
   $("#dialog").classList.add("hidden");
+  playCircle();
   canvas.focus();
 }
 
@@ -1414,6 +1637,7 @@ async function submit(e) {
     if ([1, 3, 4, 5, 7].includes(l.id)) setTimeout(() => sfx.door(), 500);
     renderDialog(false);
     toast(UNLOCKED[l.id]);
+    if (HELL && CIRCLE_EVENTS[l.id]) pendingCircle = CIRCLE_EVENTS[l.id]; // plays when the dialog closes
     setTimeout(() => daisySays(pick(["Yaaay!", "Wheee!", "Hee hee!"])), 700);
     if (l.id < 7 && Math.random() < 0.5) setTimeout(jumpscare, 2200);
   } else {
@@ -1435,6 +1659,11 @@ async function submit(e) {
 /* ---------- Input ---------- */
 document.addEventListener("keydown", (e) => {
   const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+  if (bossActive) { // during the boss fight: 1-4 picks an answer, Enter starts the fight
+    if ("1234".includes(key) && key.length === 1) bossAnswer(Number(key) - 1);
+    else if (key === "Enter" && $("[data-start]")) { e.preventDefault(); nextBossQuestion(); }
+    return;
+  }
   if (e.target.tagName === "INPUT") {
     if (key === "Escape") closeDialog();
     return;
@@ -1464,6 +1693,12 @@ document.addEventListener("submit", (e) => {
 });
 
 document.addEventListener("click", (e) => {
+  const opt = e.target.closest(".boss-opt");
+  if (opt) {
+    e.target.blur();
+    if (opt.dataset.start) return nextBossQuestion();
+    return bossAnswer(Number(opt.dataset.i));
+  }
   if (e.target.id === "hint") {
     const id = levels[dialogLevel - 1].id;
     hintsShown[id] = (hintsShown[id] || 0) + 1;
@@ -1524,6 +1759,9 @@ $("#rst").addEventListener("click", (e) => {
   solved.clear();
   saveSolved();
   escaped = false;
+  bossBeaten = false;
+  localStorage.removeItem(`${WORLD}.boss`);
+  circleAnim = pendingCircle = null;
   Object.assign(player, { x: START.x, y: START.y, px: START.x, py: START.y, moving: false });
   closeDialog();
   renderBackground();
@@ -1536,6 +1774,7 @@ $("#close-victory").addEventListener("click", () => $("#victory").classList.add(
 canvas.tabIndex = 0;
 sprite($("#intro-ghost").getContext("2d"), GHOST, GHOST_PAL, 0, 0);
 sprite($("#scare-canvas").getContext("2d"), GHOST, SCARY_PAL, 0, 0);
+if ($("#boss-canvas")) sprite($("#boss-canvas").getContext("2d"), BOSS, BOSS_PAL, 0, 0);
 renderBackground();
 updateHud();
 requestAnimationFrame(loop);

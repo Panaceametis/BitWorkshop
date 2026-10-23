@@ -16,6 +16,46 @@ body.hell {
 }
 body.hell #game { box-shadow: 0 0 0 4px #3a0a04, 0 0 50px #ff3c1455; }
 
+/* ---------- Boss fight: THE YAML LORD ---------- */
+#boss {
+  position: absolute; inset: 0; z-index: 20;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  padding: 18px; text-align: center;
+  background: radial-gradient(circle at 50% 30%, #5a0a04ee, #0d0202f5 70%);
+}
+#boss-canvas {
+  width: 170px; height: 170px; image-rendering: pixelated;
+  filter: drop-shadow(0 0 22px #ff3a1a); animation: bossbob 1.6s ease-in-out infinite;
+}
+#boss-canvas.hit { animation: bosshit .5s; }
+#boss-canvas.dead { animation: bossdead 1.6s forwards; }
+.boss-name { font-family: "Press Start 2P", monospace; font-size: 16px; color: var(--gold); text-shadow: 3px 3px 0 #000; }
+#boss-hp { display: flex; gap: 4px; }
+#boss-hp span { width: 34px; height: 12px; background: #ff3a1a; border: 2px solid #000; box-shadow: 0 0 8px #ff3a1a; transition: background .3s; }
+#boss-hp span.gone { background: #3a0a0a; box-shadow: none; }
+#boss-q { font-size: 26px; line-height: 1.15; max-width: 92%; min-height: 2.3em; }
+#boss-options { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 92%; }
+.boss-opt {
+  font-family: "VT323", monospace; font-size: 22px; text-align: left; padding: 10px 14px;
+  color: var(--text); background: #2a0a06; border: 2px solid #ff6a1a; box-shadow: 0 4px 0 #000;
+}
+.boss-opt.wide { grid-column: span 2; text-align: center; font-family: "Press Start 2P", monospace; font-size: 14px; background: #ff6a1a; color: #1a0505; }
+.boss-opt.right { background: #1f5a2a; border-color: #7dffb0; }
+.boss-opt.wrongpick { background: #7a0a0a; }
+#boss-feedback { min-height: 1.3em; font-size: 22px; color: var(--gold); }
+#boss.wrong { animation: redflash .5s; }
+
+@keyframes bossbob { 50% { transform: translateY(-8px); } }
+@keyframes bosshit {
+  0% { transform: none; filter: brightness(3) drop-shadow(0 0 30px #fff); }
+  25% { transform: translateX(-14px) rotate(-4deg); }
+  50% { transform: translateX(12px) rotate(3deg); }
+  75% { transform: translateX(-6px); }
+  100% { transform: none; }
+}
+@keyframes bossdead { to { transform: scale(1.8) rotate(14deg); opacity: 0; filter: brightness(4); } }
+@keyframes redflash { 30% { box-shadow: inset 0 0 0 9999px #ff000044; } }
+
 * { box-sizing: border-box; }
 
 body {
