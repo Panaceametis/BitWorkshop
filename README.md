@@ -37,15 +37,17 @@ Turn your sound on, then follow the game. 👻
 
 Baby steps: every room teaches one or two basic commands, and the command is given in the mission.
 
-| # | Room | Teaches | Command(s) | Answer |
-|---|------|---------|------------|--------|
-| 1 | Foyer | see running containers | `docker ps` | `manor` |
-| 2 | Library | start a new container | `docker run -d --name ghost IMG manor library` + `docker ps` | `Up` |
-| 3 | Crypt | stop, and see all containers | `docker stop ghost` + `docker ps` + `docker ps -a` | `Exited` |
-| 4 | Cellar | start again, read the output | `docker start ghost` + `docker logs ghost` | `BONES-8864` or `CANDLE-1305` |
-| 5 | Attic | find a command with `--help`, delete a container | `docker --help` → `docker stop ghost` + `docker rm ghost` | `docker rm ghost` (or `docker rm`) |
-| 6 | Dungeon | auto-cleanup with `--rm` | `docker run --rm IMG manor foyer` + `docker ps -a` | `WHISPER-7421` |
-| 7 | Exit | images vs containers | `docker images` | `latest` |
+Baby steps: every room teaches one or two basic commands. (The answers are kept out of this repo.)
+
+| # | Room | Teaches |
+|---|------|---------|
+| 1 | Foyer | see running containers |
+| 2 | Library | start a new container |
+| 3 | Crypt | stop, and see all containers |
+| 4 | Cellar | start again, read the output |
+| 5 | Attic | find a command with `--help`, delete a container |
+| 6 | Dungeon | auto-cleanup with `--rm` |
+| 7 | Exit | images vs containers |
 
 ### Bonus challenges (for fast trainees)
 The image also supports some harder tasks that aren't in the game:
