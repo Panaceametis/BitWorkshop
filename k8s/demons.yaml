@@ -1,0 +1,20 @@
+# Kubernetes Hell, trial 2: the scroll that summons the demons.
+# A Deployment that keeps 3 demon pods running, each one a container from the game image.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demons
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: demons
+  template:
+    metadata:
+      labels:
+        app: demons
+    spec:
+      containers:
+        - name: demon
+          image: ghcr.io/panaceametis/haunted-manor:latest
+          command: ["manor", "demon"]
